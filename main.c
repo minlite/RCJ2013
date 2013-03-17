@@ -30,8 +30,6 @@ Data Stack size         : 256
 
 // Declare your global variables here
 
-/* Define BUG */
-#define BUG while(1)
 
 /* MUX ADDRESS */
 #define MUXA PORTA.6
@@ -46,15 +44,26 @@ Data Stack size         : 256
 
 /* MUX PINS*/
 #define LCD 15
+#define STRICT 14
+
+/* Switches varibles */
+int lcd_enabled = 0;
+int strict_set = 0;
 
 /* Define function prototypes so we can use this functions globally */
 int init_robot();
 void write_int(int x, int y, int value);
 void set_mux(int pin);
-int lcd_enabled();
+int init_sensors();
+void init_switches();
+void bug(int error);
 
 /* Define global variables */
-int rc;
+int rc; // Return Condition
+int workingSensors[18] = {0}; // Working Sensors Array
+int sensors[18] = {1}; // Sensor Values Array
+int i; // For loop iterator
+
 void main(void)
 {
 // Declare your local variables here
@@ -173,7 +182,7 @@ i2c_init();
 // D7 - PORTC Bit 7
 // Characters/line: 16
 rc = init_robot();
-if(rc) BUG;
+if(rc) bug(rc);
 while (1)
       {
       //checksensors();
@@ -186,7 +195,10 @@ sprintf(s, "%4d", value);
 lcd_puts(s); 
 }
 int init_robot() {
-    if(lcd_enabled()) lcd_init(16);
+    init_switches();
+    if(lcd_enabled) lcd_init(16);
+    rc = init_sensors();
+    if(rc) return rc;
     return 0;
 }
 void set_mux(int pin) {
@@ -195,7 +207,32 @@ void set_mux(int pin) {
     MUXB = (pin/8) ^ (pin/2)%2;
     MUXA = (pin/8) ^ (pin/4)%2;
 }
-int lcd_enabled() {
+void init_switches(){
     set_mux(LCD);
-    return MUXOB; 
+    lcd_enabled = MUXOB;
+    set_mux(STRICT);
+    strict_set = MUXOB;
 }
+int init_sensors() {
+    int sensorHolder; 
+    int swtch;
+    for(i=0;i<18;i++) {
+        sensorHolder = i;           
+        if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
+        set_mux(sensorHolder);
+        if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
+    }
+    if(strict_set) {
+        for(i=0;i<18;i++) {
+        if(workingSensors[i] == 0) return 1;
+        }
+    }
+    return 0;
+}
+void bug(int error) {
+    if(lcd_enabled) {
+        lcd_puts("BUG on: ");
+        lcd_putchar('0' + error);
+    } else {
+        while(1); 
+}   }
