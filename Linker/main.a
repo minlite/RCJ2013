@@ -1,0 +1,333 @@
+;/*****************************************************
+;This program was produced by the
+;CodeWizardAVR V2.05.0 Professional
+;Automatic Program Generator
+;© Copyright 1998-2010 Pavel Haiduc, HP InfoTech s.r.l.
+;http://www.hpinfotech.com
+;
+;Project :
+;Version :
+;Date    : 3/17/2013
+;Author  :
+;Company :
+;Comments:
+;
+;
+;Chip type               : ATmega16
+;Program type            : Application
+;AVR Core Clock frequency: 10.000000 MHz
+;Memory model            : Small
+;External RAM size       : 0
+;Data Stack size         : 256
+;*****************************************************/
+;
+;#include <mega16.h>
+;PCODE: $00000000 VOL: 0
+	#ifndef __SLEEP_DEFINED__
+;PCODE: $00000001 VOL: 0
+	#define __SLEEP_DEFINED__
+;PCODE: $00000002 VOL: 0
+	.EQU __se_bit=0x40
+;PCODE: $00000003 VOL: 0
+	.EQU __sm_mask=0xB0
+;PCODE: $00000004 VOL: 0
+	.EQU __sm_powerdown=0x20
+;PCODE: $00000005 VOL: 0
+	.EQU __sm_powersave=0x30
+;PCODE: $00000006 VOL: 0
+	.EQU __sm_standby=0xA0
+;PCODE: $00000007 VOL: 0
+	.EQU __sm_ext_standby=0xB0
+;PCODE: $00000008 VOL: 0
+	.EQU __sm_adc_noise_red=0x10
+;PCODE: $00000009 VOL: 0
+	.SET power_ctrl_reg=mcucr
+;PCODE: $0000000A VOL: 0
+	#endif
+;PCODE: $0000000B VOL: 0
+;PCODE: $0000000C VOL: 0
+;#include <stdio.h>
+;// I2C Bus functions
+;#asm
+;PCODE: $0000000D VOL: 0
+   .equ __i2c_port=0x18 ;PORTB
+;PCODE: $0000000E VOL: 0
+   .equ __sda_bit=0
+;PCODE: $0000000F VOL: 0
+   .equ __scl_bit=1
+;PCODE: $00000010 VOL: 0
+;PCODE: $00000011 VOL: 0
+; 0000 001F #endasm
+;#include <i2c.h>
+;
+;// Alphanumeric LCD Module functions
+;#include <alcd.h>
+;
+;// Declare your global variables here
+;#define MUXA PORTA.6
+;#define MUXB PORTA.7
+;#define MUXC PORTD.6
+;#define MUXD PORTD.7
+;void write_int(int x, int y, int value);
+;void main(void)
+; 0000 002C {
+
+	.CSEG
+;PCODE: $00000012 VOL: 0
+; 0000 002D // Declare your local variables here
+; 0000 002E 
+; 0000 002F // Input/Output Ports initialization
+; 0000 0030 // Port A initialization
+; 0000 0031 // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
+; 0000 0032 // State7=0 State6=0 State5=T State4=T State3=T State2=T State1=T State0=T
+; 0000 0033 PORTA=0x00;
+;PCODE: $00000013 VOL: 0
+;PCODE: $00000014 VOL: 0
+; 0000 0034 DDRA=0xC0;
+;PCODE: $00000015 VOL: 0
+;PCODE: $00000016 VOL: 0
+; 0000 0035 
+; 0000 0036 // Port B initialization
+; 0000 0037 // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0038 // State7=T State6=T State5=T State4=T State3=0 State2=0 State1=T State0=T
+; 0000 0039 PORTB=0x00;
+;PCODE: $00000017 VOL: 0
+;PCODE: $00000018 VOL: 0
+; 0000 003A DDRB=0x0C;
+;PCODE: $00000019 VOL: 0
+;PCODE: $0000001A VOL: 0
+; 0000 003B 
+; 0000 003C // Port C initialization
+; 0000 003D // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=In Func1=In Func0=In
+; 0000 003E // State7=T State6=T State5=T State4=T State3=1 State2=T State1=T State0=T
+; 0000 003F PORTC=0x08;
+;PCODE: $0000001B VOL: 0
+;PCODE: $0000001C VOL: 0
+; 0000 0040 DDRC=0x08;
+;PCODE: $0000001D VOL: 0
+;PCODE: $0000001E VOL: 0
+; 0000 0041 
+; 0000 0042 // Port D initialization
+; 0000 0043 // Func7=Out Func6=Out Func5=Out Func4=Out Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0044 // State7=0 State6=0 State5=0 State4=0 State3=0 State2=0 State1=T State0=T
+; 0000 0045 PORTD=0x00;
+;PCODE: $0000001F VOL: 0
+;PCODE: $00000020 VOL: 0
+; 0000 0046 DDRD=0xFC;
+;PCODE: $00000021 VOL: 0
+;PCODE: $00000022 VOL: 0
+; 0000 0047 
+; 0000 0048 // Timer/Counter 0 initialization
+; 0000 0049 // Clock source: System Clock
+; 0000 004A // Clock value: 1250.000 kHz
+; 0000 004B // Mode: Fast PWM top=0xFF
+; 0000 004C // OC0 output: Non-Inverted PWM
+; 0000 004D TCCR0=0x6A;
+;PCODE: $00000023 VOL: 0
+;PCODE: $00000024 VOL: 0
+; 0000 004E TCNT0=0x00;
+;PCODE: $00000025 VOL: 0
+;PCODE: $00000026 VOL: 0
+; 0000 004F OCR0=0x00;
+;PCODE: $00000027 VOL: 0
+;PCODE: $00000028 VOL: 0
+; 0000 0050 
+; 0000 0051 // Timer/Counter 1 initialization
+; 0000 0052 // Clock source: System Clock
+; 0000 0053 // Clock value: 1250.000 kHz
+; 0000 0054 // Mode: Fast PWM top=0x00FF
+; 0000 0055 // OC1A output: Non-Inv.
+; 0000 0056 // OC1B output: Non-Inv.
+; 0000 0057 // Noise Canceler: Off
+; 0000 0058 // Input Capture on Falling Edge
+; 0000 0059 // Timer1 Overflow Interrupt: Off
+; 0000 005A // Input Capture Interrupt: Off
+; 0000 005B // Compare A Match Interrupt: Off
+; 0000 005C // Compare B Match Interrupt: Off
+; 0000 005D TCCR1A=0xA1;
+;PCODE: $00000029 VOL: 0
+;PCODE: $0000002A VOL: 0
+; 0000 005E TCCR1B=0x0A;
+;PCODE: $0000002B VOL: 0
+;PCODE: $0000002C VOL: 0
+; 0000 005F TCNT1H=0x00;
+;PCODE: $0000002D VOL: 0
+;PCODE: $0000002E VOL: 0
+; 0000 0060 TCNT1L=0x00;
+;PCODE: $0000002F VOL: 0
+;PCODE: $00000030 VOL: 0
+; 0000 0061 ICR1H=0x00;
+;PCODE: $00000031 VOL: 0
+;PCODE: $00000032 VOL: 0
+; 0000 0062 ICR1L=0x00;
+;PCODE: $00000033 VOL: 0
+;PCODE: $00000034 VOL: 0
+; 0000 0063 OCR1AH=0x00;
+;PCODE: $00000035 VOL: 0
+;PCODE: $00000036 VOL: 0
+; 0000 0064 OCR1AL=0x00;
+;PCODE: $00000037 VOL: 0
+;PCODE: $00000038 VOL: 0
+; 0000 0065 OCR1BH=0x00;
+;PCODE: $00000039 VOL: 0
+;PCODE: $0000003A VOL: 0
+; 0000 0066 OCR1BL=0x00;
+;PCODE: $0000003B VOL: 0
+;PCODE: $0000003C VOL: 0
+; 0000 0067 
+; 0000 0068 // Timer/Counter 2 initialization
+; 0000 0069 // Clock source: System Clock
+; 0000 006A // Clock value: Timer2 Stopped
+; 0000 006B // Mode: Normal top=0xFF
+; 0000 006C // OC2 output: Disconnected
+; 0000 006D ASSR=0x00;
+;PCODE: $0000003D VOL: 0
+;PCODE: $0000003E VOL: 0
+; 0000 006E TCCR2=0x00;
+;PCODE: $0000003F VOL: 0
+;PCODE: $00000040 VOL: 0
+; 0000 006F TCNT2=0x00;
+;PCODE: $00000041 VOL: 0
+;PCODE: $00000042 VOL: 0
+; 0000 0070 OCR2=0x00;
+;PCODE: $00000043 VOL: 0
+;PCODE: $00000044 VOL: 0
+; 0000 0071 
+; 0000 0072 // External Interrupt(s) initialization
+; 0000 0073 // INT0: Off
+; 0000 0074 // INT1: Off
+; 0000 0075 // INT2: Off
+; 0000 0076 MCUCR=0x00;
+;PCODE: $00000045 VOL: 0
+;PCODE: $00000046 VOL: 0
+; 0000 0077 MCUCSR=0x00;
+;PCODE: $00000047 VOL: 0
+;PCODE: $00000048 VOL: 0
+; 0000 0078 
+; 0000 0079 // Timer(s)/Counter(s) Interrupt(s) initialization
+; 0000 007A TIMSK=0x00;
+;PCODE: $00000049 VOL: 0
+;PCODE: $0000004A VOL: 0
+; 0000 007B 
+; 0000 007C // USART initialization
+; 0000 007D // USART disabled
+; 0000 007E UCSRB=0x00;
+;PCODE: $0000004B VOL: 0
+;PCODE: $0000004C VOL: 0
+; 0000 007F 
+; 0000 0080 // Analog Comparator initialization
+; 0000 0081 // Analog Comparator: Off
+; 0000 0082 // Analog Comparator Input Capture by Timer/Counter 1: Off
+; 0000 0083 ACSR=0x80;
+;PCODE: $0000004D VOL: 0
+;PCODE: $0000004E VOL: 0
+; 0000 0084 SFIOR=0x00;
+;PCODE: $0000004F VOL: 0
+;PCODE: $00000050 VOL: 0
+; 0000 0085 
+; 0000 0086 // ADC initialization
+; 0000 0087 // ADC disabled
+; 0000 0088 ADCSRA=0x00;
+;PCODE: $00000051 VOL: 0
+;PCODE: $00000052 VOL: 0
+; 0000 0089 
+; 0000 008A // SPI initialization
+; 0000 008B // SPI disabled
+; 0000 008C SPCR=0x00;
+;PCODE: $00000053 VOL: 0
+;PCODE: $00000054 VOL: 0
+; 0000 008D 
+; 0000 008E // TWI initialization
+; 0000 008F // TWI disabled
+; 0000 0090 TWCR=0x00;
+;PCODE: $00000055 VOL: 0
+;PCODE: $00000056 VOL: 0
+; 0000 0091 
+; 0000 0092 // I2C Bus initialization
+; 0000 0093 i2c_init();
+;PCODE: $00000057 VOL: 0
+; 0000 0094 
+; 0000 0095 // Alphanumeric LCD initialization
+; 0000 0096 // Connections specified in the
+; 0000 0097 // Project|Configure|C Compiler|Libraries|Alphanumeric LCD menu:
+; 0000 0098 // RS - PORTC Bit 0
+; 0000 0099 // RD - PORTC Bit 1
+; 0000 009A // EN - PORTC Bit 2
+; 0000 009B // D4 - PORTC Bit 4
+; 0000 009C // D5 - PORTC Bit 5
+; 0000 009D // D6 - PORTC Bit 6
+; 0000 009E // D7 - PORTC Bit 7
+; 0000 009F // Characters/line: 16
+; 0000 00A0 lcd_init(16);
+;PCODE: $00000058 VOL: 0
+;PCODE: $00000059 VOL: 0
+;PCODE: $0000005A VOL: 0
+; 0000 00A1 MUXA = 0;
+;PCODE: $0000005B VOL: 0
+;PCODE: $0000005C VOL: 0
+; 0000 00A2 MUXB = 0;
+;PCODE: $0000005D VOL: 0
+;PCODE: $0000005E VOL: 0
+; 0000 00A3 MUXC = 0;
+;PCODE: $0000005F VOL: 0
+;PCODE: $00000060 VOL: 0
+; 0000 00A4 MUXD = 0;
+;PCODE: $00000061 VOL: 0
+;PCODE: $00000062 VOL: 0
+; 0000 00A5 while (1)
+;PCODE: $00000063 VOL: 0
+; 0000 00A6       {
+; 0000 00A7       write_int(0,0,PINA.4);
+;PCODE: $00000064 VOL: 0
+;PCODE: $00000065 VOL: 0
+;PCODE: $00000066 VOL: 0
+;PCODE: $00000067 VOL: 0
+;PCODE: $00000068 VOL: 0
+;PCODE: $00000069 VOL: 0
+;PCODE: $0000006A VOL: 0
+;PCODE: $0000006B VOL: 0
+;PCODE: $0000006C VOL: 0
+; 0000 00A8       }
+;PCODE: $0000006D VOL: 0
+;PCODE: $0000006E VOL: 0
+; 0000 00A9 }
+;PCODE: $0000006F VOL: 0
+;PCODE: $00000070 VOL: 0
+;PCODE: $00000071 VOL: 0
+;void write_int(int x, int y, int value) {
+; 0000 00AA void write_int(int x, int y, int value) {
+;PCODE: $00000072 VOL: 0
+;PCODE: $00000073 VOL: 0
+; 0000 00AB char s[4];
+; 0000 00AC lcd_gotoxy(x,y);
+;PCODE: $00000074 VOL: 0
+;	x -> Y+8
+;	y -> Y+6
+;	value -> Y+4
+;	s -> Y+0
+;PCODE: $00000075 VOL: 0
+;PCODE: $00000076 VOL: 0
+;PCODE: $00000077 VOL: 0
+;PCODE: $00000078 VOL: 0
+;PCODE: $00000079 VOL: 0
+; 0000 00AD sprintf(s, "%4d", value);
+;PCODE: $0000007A VOL: 0
+;PCODE: $0000007B VOL: 0
+;PCODE: $0000007C VOL: 0
+;PCODE: $0000007D VOL: 0
+;PCODE: $0000007E VOL: 0
+;PCODE: $0000007F VOL: 0
+;PCODE: $00000080 VOL: 0
+;PCODE: $00000081 VOL: 0
+;PCODE: $00000082 VOL: 0
+;PCODE: $00000083 VOL: 0
+;PCODE: $00000084 VOL: 0
+;PCODE: $00000085 VOL: 0
+; 0000 00AE lcd_puts(s);
+;PCODE: $00000086 VOL: 0
+;PCODE: $00000087 VOL: 0
+;PCODE: $00000088 VOL: 0
+; 0000 00AF }
+;PCODE: $00000089 VOL: 0
+;PCODE: $0000008A VOL: 0
+;PCODE: $0000008B VOL: 0

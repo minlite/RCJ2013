@@ -1,0 +1,11 @@
+VERSION:3 SOURCE_TIMESTAMP:42717B2D
+NODE:I LEVEL:0 LINE:24 "C:\cvavreval\inc\mega16.h"
+NODE:I LEVEL:0 LINE:25 "C:\cvavreval\inc\stdio.h"
+NODE:I LEVEL:0 LINE:32 "C:\cvavreval\inc\i2c.h"
+NODE:I LEVEL:0 LINE:35 "C:\cvavreval\inc\alcd.h"
+NODE:M LEVEL:0 LINE:38 "MUXA"
+NODE:M LEVEL:0 LINE:39 "MUXB"
+NODE:M LEVEL:0 LINE:40 "MUXC"
+NODE:M LEVEL:0 LINE:41 "MUXD"
+NODE:F LEVEL:0 LINE:43 "main(void)"
+NODE:F LEVEL:0 LINE:170 "write_int(int x,int y,int value)"
