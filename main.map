@@ -10,6 +10,7 @@ Variable                                                          Address   Size
 Register Allocation
 Variable                                                          Register  Size
 --------------------------------------------------------------------------------
-_lcd_x                                                            R5           1
-_lcd_y                                                            R4           1
-_lcd_maxx                                                         R7           1
+rc                                                                R4,R5        2
+_lcd_x                                                            R7           1
+_lcd_y                                                            R6           1
+_lcd_maxx                                                         R9           1

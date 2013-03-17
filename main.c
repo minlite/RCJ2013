@@ -1,15 +1,9 @@
 /*****************************************************
-This program was produced by the
-CodeWizardAVR V2.05.0 Professional
-Automatic Program Generator
-© Copyright 1998-2010 Pavel Haiduc, HP InfoTech s.r.l.
-http://www.hpinfotech.com
-
-Project : 
-Version : 
+Project : AMOS Robocup Junior Soccer 2013 
+Version : 3
 Date    : 3/17/2013
-Author  : 
-Company : 
+Author  : Miro Markarian and AMOS team
+Company : AMOS
 Comments: 
 
 
@@ -35,11 +29,32 @@ Data Stack size         : 256
 #include <alcd.h>
 
 // Declare your global variables here
+
+/* Define BUG */
+#define BUG while(1)
+
+/* MUX ADDRESS */
 #define MUXA PORTA.6
 #define MUXB PORTA.7
 #define MUXC PORTD.6
 #define MUXD PORTD.7
+
+/* MUX OUT */
+#define MUXOA PINA.4
+#define MUXOB PINA.5
+
+
+/* MUX PINS*/
+#define LCD 15
+
+/* Define function prototypes so we can use this functions globally */
+int init_robot();
 void write_int(int x, int y, int value);
+void set_mux(int pin);
+int lcd_enabled();
+
+/* Define global variables */
+int rc;
 void main(void)
 {
 // Declare your local variables here
@@ -157,14 +172,11 @@ i2c_init();
 // D6 - PORTC Bit 6
 // D7 - PORTC Bit 7
 // Characters/line: 16
-lcd_init(16);
-MUXA = 0;
-MUXB = 0;
-MUXC = 0;
-MUXD = 0;
+rc = init_robot();
+if(rc) BUG;
 while (1)
       {
-      write_int(0,0,PINA.4);
+      //checksensors();
       }
 }
 void write_int(int x, int y, int value) {
@@ -172,4 +184,18 @@ char s[4];
 lcd_gotoxy(x,y);
 sprintf(s, "%4d", value);
 lcd_puts(s); 
+}
+int init_robot() {
+    if(lcd_enabled()) lcd_init(16);
+    return 0;
+}
+void set_mux(int pin) {
+    MUXD = (pin/8);
+    MUXC = (pin/8) ^ pin%2;
+    MUXB = (pin/8) ^ (pin/2)%2;
+    MUXA = (pin/8) ^ (pin/4)%2;
+}
+int lcd_enabled() {
+    set_mux(LCD);
+    return MUXOB; 
 }

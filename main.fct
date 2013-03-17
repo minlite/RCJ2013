@@ -1,5 +1,5 @@
-main DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"main.c" LINE:43
-write_int DSTACK_USAGE:10 DSTACK_LEVEL:10 FILE:"main.c" LINE:170
-sprintf DSTACK_USAGE:14 DSTACK_LEVEL:24 FILE:"C:\cvavreval\lib\stdio.lib" LINE:1410
-_print DSTACK_USAGE:20 DSTACK_LEVEL:44 FILE:"C:\cvavreval\lib\stdio.lib" LINE:503
-strlen DSTACK_USAGE:2 DSTACK_LEVEL:46 FILE:"C:\cvavreval\lib\string.lib" LINE:1707
+main DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"main.c" LINE:58
+init_robot DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"main.c" LINE:188
+lcd_init DSTACK_USAGE:1 DSTACK_LEVEL:1 FILE:"C:\cvavreval\lib\alcd.lib" LINE:264
+_lcd_write_data DSTACK_USAGE:1 DSTACK_LEVEL:2 FILE:"C:\cvavreval\lib\alcd.lib" LINE:147
+_lcd_write_nibble DSTACK_USAGE:1 DSTACK_LEVEL:3 FILE:"C:\cvavreval\lib\alcd.lib" LINE:132
