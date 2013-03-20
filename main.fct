@@ -1,7 +1,4 @@
-main DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"main.c" LINE:67
-bug DSTACK_USAGE:2 DSTACK_LEVEL:2 FILE:"main.c" LINE:232
-lcd_puts DSTACK_USAGE:3 DSTACK_LEVEL:5 FILE:"C:\cvavreval\lib\alcd.lib" LINE:243
-lcd_putchar DSTACK_USAGE:1 DSTACK_LEVEL:6 FILE:"C:\cvavreval\lib\alcd.lib" LINE:229
-lcd_gotoxy DSTACK_USAGE:2 DSTACK_LEVEL:8 FILE:"C:\cvavreval\lib\alcd.lib" LINE:211
-_lcd_write_data DSTACK_USAGE:1 DSTACK_LEVEL:9 FILE:"C:\cvavreval\lib\alcd.lib" LINE:147
-_lcd_write_nibble DSTACK_USAGE:1 DSTACK_LEVEL:10 FILE:"C:\cvavreval\lib\alcd.lib" LINE:132
+main DSTACK_USAGE:0 DSTACK_LEVEL:0 FILE:"main.c" LINE:74
+lcd_init DSTACK_USAGE:1 DSTACK_LEVEL:1 FILE:"C:\cvavreval\lib\alcd.lib" LINE:264
+_lcd_write_data DSTACK_USAGE:1 DSTACK_LEVEL:2 FILE:"C:\cvavreval\lib\alcd.lib" LINE:147
+_lcd_write_nibble DSTACK_USAGE:1 DSTACK_LEVEL:3 FILE:"C:\cvavreval\lib\alcd.lib" LINE:132

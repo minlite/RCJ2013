@@ -24,6 +24,8 @@ Data Stack size         : 256
    .equ __scl_bit=1
 #endasm
 #include <i2c.h>
+#include <delay.h>
+#include <stdlib.h>
 
 // Alphanumeric LCD Module functions
 #include <alcd.h>
@@ -48,7 +50,7 @@ Data Stack size         : 256
 
 /* Switches varibles */
 int lcd_enabled = 0;
-int strict_set = 0;
+//int strict_set = 0;
 
 /* Define function prototypes so we can use this functions globally */
 int init_robot();
@@ -57,13 +59,18 @@ void set_mux(int pin);
 int init_sensors();
 void init_switches();
 void bug(int error);
+void checksensors();
+float getMovement();
+
+void lcd_writeint(int x, int y, int value);
 
 /* Define global variables */
+
 int rc; // Return Condition
-int workingSensors[18] = {0}; // Working Sensors Array
+int workingSensors[18] = {1}; // Working Sensors Array
 int sensors[18] = {1}; // Sensor Values Array
 int i; // For loop iterator
-
+float move;
 void main(void)
 {
 // Declare your local variables here
@@ -71,8 +78,8 @@ void main(void)
 // Input/Output Ports initialization
 // Port A initialization
 // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In 
-// State7=0 State6=0 State5=T State4=T State3=T State2=T State1=T State0=T 
-PORTA=0x00;
+// State7=0 State6=0 State5=P State4=P State3=T State2=T State1=T State0=T 
+PORTA=0x30;
 DDRA=0xC0;
 
 // Port B initialization
@@ -181,18 +188,26 @@ i2c_init();
 // D6 - PORTC Bit 6
 // D7 - PORTC Bit 7
 // Characters/line: 16
-rc = init_robot();
-if(rc) bug(rc);
+//rc = init_robot();
+//if(rc) bug(rc);
+lcd_init(16);
+for(i=0;i<18;i++) sensors[i] = 1;
 while (1)
       {
-      //checksensors();
       }
 }
 void write_int(int x, int y, int value) {
-char s[4];
-lcd_gotoxy(x,y);
-sprintf(s, "%4d", value);
-lcd_puts(s); 
+    char s[4];
+    lcd_gotoxy(x,y);
+    sprintf(s, "%d", value);
+    lcd_puts(s); 
+}
+void lcd_writeint(int x, int y, int value) {
+    lcd_gotoxy(x,y);
+    lcd_putchar('0' + value/1000);
+    lcd_putchar('0' + (value/100)%10);
+    lcd_putchar('0' + (value/10)%10);
+    lcd_putchar('0' + value%10);
 }
 int init_robot() {
     init_switches();
@@ -203,29 +218,24 @@ int init_robot() {
 }
 void set_mux(int pin) {
     MUXD = (pin/8);
-    MUXC = (pin/8) ^ pin%2;
-    MUXB = (pin/8) ^ (pin/2)%2;
-    MUXA = (pin/8) ^ (pin/4)%2;
+    MUXC = (pin>>3) & 1;
+    MUXB = (pin>>2) & 1;
+    MUXA = (pin>>1) & 1;
 }
 void init_switches(){
     set_mux(LCD);
     lcd_enabled = MUXOB;
-    set_mux(STRICT);
-    strict_set = MUXOB;
+    //set_mux(STRICT);
+    //strict_set = MUXOB;
 }
 int init_sensors() {
-    int sensorHolder; 
-    int swtch;
+    char sensorHolder; 
+    char swtch;
     for(i=0;i<18;i++) {
         sensorHolder = i;           
         if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
         set_mux(sensorHolder);
         if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
-    }
-    if(strict_set) {
-        for(i=0;i<18;i++) {
-        if(workingSensors[i] == 0) return 1;
-        }
     }
     return 0;
 }
@@ -234,5 +244,34 @@ void bug(int error) {
         lcd_puts("BUG on: ");
         lcd_putchar('0' + error);
     } else {
-        while(1); 
-}   }
+        while(1);}   
+}
+void checksensors() {
+    char sensorHolder; 
+    char swtch;
+    for(i=0;i<18;i++) {
+        if(workingSensors[i] == 0) sensors[i] = 1; else {
+            sensorHolder = i;           
+            if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
+            set_mux(sensorHolder);
+            sensors[i] = (swtch ? MUXOB : MUXOA); 
+        }
+    }
+    
+}
+float getMovement() {
+    unsigned char left = 0, right = 0, sum = 0, n = 0;
+    float ret = 0;
+    for(i=0;i<18;i++) {
+        if(sensors[i] == 0) { 
+            sum+= i;
+            n++;
+            if(i<5) left++;
+            if(i>13) right++;
+        }
+    }
+    if(left>0 && right >0) sum += (left * 18);
+    ret = (float) sum/n;
+    if(ret>18) ret -= 18;
+    return ret; 
+} 

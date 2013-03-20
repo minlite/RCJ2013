@@ -2,8 +2,10 @@ RAM Allocation
 Variable                                                          Address   Size
 --------------------------------------------------------------------------------
 workingSensors                                                    0x0169      36
-_base_y                                                           0x018D       4
-_lcd_maxx                                                         0x0191       1
+sensors                                                           0x018D      36
+_seed                                                             0x01B1       4
+_base_y                                                           0x01B5       4
+_lcd_maxx                                                         0x01B9       1
 
 EEPROM Allocation
 Variable                                                          Address   Size
@@ -13,8 +15,7 @@ Register Allocation
 Variable                                                          Register  Size
 --------------------------------------------------------------------------------
 lcd_enabled                                                       R4,R5        2
-strict_set                                                        R6,R7        2
-rc                                                                R8,R9        2
-i                                                                 R10,R11      2
+rc                                                                R6,R7        2
+i                                                                 R8,R9        2
 _lcd_x                                                            R13          1
 _lcd_y                                                            R12          1
