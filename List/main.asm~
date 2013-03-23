@@ -1059,8 +1059,9 @@ __DELAY_USW_LOOP:
 	.DEF _lcd_enabled=R4
 	.DEF _rc=R6
 	.DEF _i=R8
-	.DEF _motorSpeed=R10
-	.DEF _motorSpeed1=R12
+	.DEF __lcd_x=R11
+	.DEF __lcd_y=R10
+	.DEF __lcd_maxx=R13
 
 	.CSEG
 	.ORG 0x00
@@ -1101,12 +1102,11 @@ _0x3:
 	.DB  0x1
 _0x4:
 	.DB  0x1
-_0x66:
+_0x44:
 	.DB  0x0,0x0
 _0x0:
 	.DB  0x25,0x64,0x0,0x42,0x55,0x47,0x20,0x6F
-	.DB  0x6E,0x3A,0x20,0x0,0x64,0x6F,0x6E,0x65
-	.DB  0x0
+	.DB  0x6E,0x3A,0x20,0x0
 _0x2020060:
 	.DB  0x1
 _0x2020000:
@@ -1125,12 +1125,12 @@ __GLOBAL_INI_TBL:
 	.DW  _0x4*2
 
 	.DW  0x09
-	.DW  _0x1C
+	.DW  _0x29
 	.DW  _0x0*2+3
 
 	.DW  0x02
 	.DW  0x04
-	.DW  _0x66*2
+	.DW  _0x44*2
 
 	.DW  0x01
 	.DW  __seed_G101
@@ -1259,13 +1259,12 @@ __GLOBAL_INI_END:
 ;#include <i2c.h>
 ;#include <delay.h>
 ;#include <stdlib.h>
+;
 ;// Alphanumeric LCD Module functions
 ;#include <alcd.h>
 ;
 ;// Declare your global variables here
 ;
-;#define cmpbus 0xC0
-;#define RDC_FOR_MAXON 0.6
 ;
 ;/* MUX ADDRESS */
 ;#define MUXA PORTA.6
@@ -1279,8 +1278,8 @@ __GLOBAL_INI_END:
 ;
 ;
 ;/* MUX PINS*/
-;#define LCD 9
-;#define STRICT 10
+;#define LCD 15
+;#define STRICT 14
 ;
 ;/* Switches varibles */
 ;int lcd_enabled = 0;
@@ -1289,20 +1288,13 @@ __GLOBAL_INI_END:
 ;/* Define function prototypes so we can use this functions globally */
 ;int init_robot();
 ;void write_int(int x, int y, int value);
+;void set_mux(int pin);
 ;int init_sensors();
 ;void init_switches();
 ;void bug(int error);
 ;void checksensors();
 ;float getMovement();
 ;void set_muxs(int pin);
-;void goforIt(int m1, int m2, int m3);
-;void spinSpeed(int devidedValue, int addedValue, int correction);
-;void init_compass();
-;int calc_degree(int a);
-;void compass_calib();
-;unsigned char readcmp();
-;void motor(int a, int b, int c);
-;
 ;/* Define global variables */
 ;
 ;int rc; // Return Condition
@@ -1311,820 +1303,539 @@ __GLOBAL_INI_END:
 	.DSEG
 ;int sensors[18] = {1}; // Sensor Values Array
 ;int i; // For loop iterator
-;char str[4];
-;float move,sss;
-;int motorSpeed;
-;int motorSpeed1;
-;int motorSpeed2;
-;int motorSpeed3;
-;int compass;
-;eeprom int start_point;
-;
+;float move;
 ;void main(void)
-; 0000 0059 {
+; 0000 0049 {
 
 	.CSEG
 _main:
-; 0000 005A // Declare your local variables here
-; 0000 005B 
-; 0000 005C // Input/Output Ports initialization
-; 0000 005D // Port A initialization
-; 0000 005E // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
-; 0000 005F // State7=0 State6=0 State5=P State4=P State3=T State2=T State1=T State0=T
-; 0000 0060 PORTA=0x30;
+; 0000 004A // Declare your local variables here
+; 0000 004B 
+; 0000 004C // Input/Output Ports initialization
+; 0000 004D // Port A initialization
+; 0000 004E // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
+; 0000 004F // State7=0 State6=0 State5=P State4=P State3=T State2=T State1=T State0=T
+; 0000 0050 PORTA=0x30;
 	LDI  R30,LOW(48)
 	OUT  0x1B,R30
-; 0000 0061 DDRA=0xC0;
+; 0000 0051 DDRA=0xC0;
 	LDI  R30,LOW(192)
 	OUT  0x1A,R30
-; 0000 0062 
-; 0000 0063 // Port B initialization
-; 0000 0064 // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=Out Func1=In Func0=In
-; 0000 0065 // State7=T State6=T State5=T State4=T State3=0 State2=0 State1=T State0=T
-; 0000 0066 PORTB=0x00;
+; 0000 0052 
+; 0000 0053 // Port B initialization
+; 0000 0054 // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0055 // State7=T State6=T State5=T State4=T State3=0 State2=0 State1=T State0=T
+; 0000 0056 PORTB=0x00;
 	LDI  R30,LOW(0)
 	OUT  0x18,R30
-; 0000 0067 DDRB=0x0C;
+; 0000 0057 DDRB=0x0C;
 	LDI  R30,LOW(12)
 	OUT  0x17,R30
-; 0000 0068 
-; 0000 0069 // Port C initialization
-; 0000 006A // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=In Func1=In Func0=In
-; 0000 006B // State7=T State6=T State5=T State4=T State3=1 State2=T State1=T State0=T
-; 0000 006C PORTC=0x08;
+; 0000 0058 
+; 0000 0059 // Port C initialization
+; 0000 005A // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=In Func1=In Func0=In
+; 0000 005B // State7=T State6=T State5=T State4=T State3=1 State2=T State1=T State0=T
+; 0000 005C PORTC=0x08;
 	LDI  R30,LOW(8)
 	OUT  0x15,R30
-; 0000 006D DDRC=0x08;
+; 0000 005D DDRC=0x08;
 	OUT  0x14,R30
-; 0000 006E 
-; 0000 006F // Port D initialization
-; 0000 0070 // Func7=Out Func6=Out Func5=Out Func4=Out Func3=Out Func2=Out Func1=In Func0=In
-; 0000 0071 // State7=0 State6=0 State5=0 State4=0 State3=0 State2=0 State1=T State0=T
-; 0000 0072 PORTD=0x00;
+; 0000 005E 
+; 0000 005F // Port D initialization
+; 0000 0060 // Func7=Out Func6=Out Func5=Out Func4=Out Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0061 // State7=0 State6=0 State5=0 State4=0 State3=0 State2=0 State1=T State0=T
+; 0000 0062 PORTD=0x00;
 	LDI  R30,LOW(0)
 	OUT  0x12,R30
-; 0000 0073 DDRD=0xFC;
+; 0000 0063 DDRD=0xFC;
 	LDI  R30,LOW(252)
 	OUT  0x11,R30
-; 0000 0074 
-; 0000 0075 // Timer/Counter 0 initialization
-; 0000 0076 // Clock source: System Clock
-; 0000 0077 // Clock value: 1250.000 kHz
-; 0000 0078 // Mode: Fast PWM top=0xFF
-; 0000 0079 // OC0 output: Non-Inverted PWM
-; 0000 007A TCCR0=0x6A;
+; 0000 0064 
+; 0000 0065 // Timer/Counter 0 initialization
+; 0000 0066 // Clock source: System Clock
+; 0000 0067 // Clock value: 1250.000 kHz
+; 0000 0068 // Mode: Fast PWM top=0xFF
+; 0000 0069 // OC0 output: Non-Inverted PWM
+; 0000 006A TCCR0=0x6A;
 	LDI  R30,LOW(106)
 	OUT  0x33,R30
-; 0000 007B TCNT0=0x00;
+; 0000 006B TCNT0=0x00;
 	LDI  R30,LOW(0)
 	OUT  0x32,R30
-; 0000 007C OCR0=0x00;
+; 0000 006C OCR0=0x00;
 	OUT  0x3C,R30
-; 0000 007D 
-; 0000 007E // Timer/Counter 1 initialization
-; 0000 007F // Clock source: System Clock
-; 0000 0080 // Clock value: 1250.000 kHz
-; 0000 0081 // Mode: Fast PWM top=0x00FF
-; 0000 0082 // OC1A output: Non-Inv.
-; 0000 0083 // OC1B output: Non-Inv.
-; 0000 0084 // Noise Canceler: Off
-; 0000 0085 // Input Capture on Falling Edge
-; 0000 0086 // Timer1 Overflow Interrupt: Off
-; 0000 0087 // Input Capture Interrupt: Off
-; 0000 0088 // Compare A Match Interrupt: Off
-; 0000 0089 // Compare B Match Interrupt: Off
-; 0000 008A TCCR1A=0xA1;
+; 0000 006D 
+; 0000 006E #asm
+; 0000 006F     khadfla
+    khadfla
+; 0000 0070     #endasm
+; 0000 0071 // Timer/Counter 1 initialization
+; 0000 0072 // Clock source: System Clock
+; 0000 0073 // Clock value: 1250.000 kHz
+; 0000 0074 // Mode: Fast PWM top=0x00FF
+; 0000 0075 // OC1A output: Non-Inv.
+; 0000 0076 // OC1B output: Non-Inv.
+; 0000 0077 // Noise Canceler: Off
+; 0000 0078 // Input Capture on Falling Edge
+; 0000 0079 // Timer1 Overflow Interrupt: Off
+; 0000 007A // Input Capture Interrupt: Off
+; 0000 007B // Compare A Match Interrupt: Off
+; 0000 007C // Compare B Match Interrupt: Off
+; 0000 007D TCCR1A=0xA1;
 	LDI  R30,LOW(161)
 	OUT  0x2F,R30
-; 0000 008B TCCR1B=0x0A;
+; 0000 007E TCCR1B=0x0A;
 	LDI  R30,LOW(10)
 	OUT  0x2E,R30
-; 0000 008C TCNT1H=0x00;
+; 0000 007F TCNT1H=0x00;
 	LDI  R30,LOW(0)
 	OUT  0x2D,R30
-; 0000 008D TCNT1L=0x00;
+; 0000 0080 TCNT1L=0x00;
 	OUT  0x2C,R30
-; 0000 008E ICR1H=0x00;
+; 0000 0081 ICR1H=0x00;
 	OUT  0x27,R30
-; 0000 008F ICR1L=0x00;
+; 0000 0082 ICR1L=0x00;
 	OUT  0x26,R30
-; 0000 0090 OCR1AH=0x00;
+; 0000 0083 OCR1AH=0x00;
 	OUT  0x2B,R30
-; 0000 0091 OCR1AL=0x00;
+; 0000 0084 OCR1AL=0x00;
 	OUT  0x2A,R30
-; 0000 0092 OCR1BH=0x00;
+; 0000 0085 OCR1BH=0x00;
 	OUT  0x29,R30
-; 0000 0093 OCR1BL=0x00;
+; 0000 0086 OCR1BL=0x00;
 	OUT  0x28,R30
-; 0000 0094 
-; 0000 0095 // Timer/Counter 2 initialization
-; 0000 0096 // Clock source: System Clock
-; 0000 0097 // Clock value: Timer2 Stopped
-; 0000 0098 // Mode: Normal top=0xFF
-; 0000 0099 // OC2 output: Disconnected
-; 0000 009A ASSR=0x00;
+; 0000 0087 
+; 0000 0088 // Timer/Counter 2 initialization
+; 0000 0089 // Clock source: System Clock
+; 0000 008A // Clock value: Timer2 Stopped
+; 0000 008B // Mode: Normal top=0xFF
+; 0000 008C // OC2 output: Disconnected
+; 0000 008D ASSR=0x00;
 	OUT  0x22,R30
-; 0000 009B TCCR2=0x00;
+; 0000 008E TCCR2=0x00;
 	OUT  0x25,R30
-; 0000 009C TCNT2=0x00;
+; 0000 008F TCNT2=0x00;
 	OUT  0x24,R30
-; 0000 009D OCR2=0x00;
+; 0000 0090 OCR2=0x00;
 	OUT  0x23,R30
-; 0000 009E 
-; 0000 009F // External Interrupt(s) initialization
-; 0000 00A0 // INT0: Off
-; 0000 00A1 // INT1: Off
-; 0000 00A2 // INT2: Off
-; 0000 00A3 MCUCR=0x00;
+; 0000 0091 
+; 0000 0092 // External Interrupt(s) initialization
+; 0000 0093 // INT0: Off
+; 0000 0094 // INT1: Off
+; 0000 0095 // INT2: Off
+; 0000 0096 MCUCR=0x00;
 	OUT  0x35,R30
-; 0000 00A4 MCUCSR=0x00;
+; 0000 0097 MCUCSR=0x00;
 	OUT  0x34,R30
-; 0000 00A5 
-; 0000 00A6 // Timer(s)/Counter(s) Interrupt(s) initialization
-; 0000 00A7 TIMSK=0x00;
+; 0000 0098 
+; 0000 0099 // Timer(s)/Counter(s) Interrupt(s) initialization
+; 0000 009A TIMSK=0x00;
 	OUT  0x39,R30
-; 0000 00A8 
-; 0000 00A9 // USART initialization
-; 0000 00AA // USART disabled
-; 0000 00AB UCSRB=0x00;
+; 0000 009B 
+; 0000 009C // USART initialization
+; 0000 009D // USART disabled
+; 0000 009E UCSRB=0x00;
 	OUT  0xA,R30
-; 0000 00AC 
-; 0000 00AD // Analog Comparator initialization
-; 0000 00AE // Analog Comparator: Off
-; 0000 00AF // Analog Comparator Input Capture by Timer/Counter 1: Off
-; 0000 00B0 ACSR=0x80;
+; 0000 009F 
+; 0000 00A0 // Analog Comparator initialization
+; 0000 00A1 // Analog Comparator: Off
+; 0000 00A2 // Analog Comparator Input Capture by Timer/Counter 1: Off
+; 0000 00A3 ACSR=0x80;
 	LDI  R30,LOW(128)
 	OUT  0x8,R30
-; 0000 00B1 SFIOR=0x00;
+; 0000 00A4 SFIOR=0x00;
 	LDI  R30,LOW(0)
 	OUT  0x30,R30
-; 0000 00B2 
-; 0000 00B3 // ADC initialization
-; 0000 00B4 // ADC disabled
-; 0000 00B5 ADCSRA=0x00;
+; 0000 00A5 
+; 0000 00A6 // ADC initialization
+; 0000 00A7 // ADC disabled
+; 0000 00A8 ADCSRA=0x00;
 	OUT  0x6,R30
-; 0000 00B6 
-; 0000 00B7 // SPI initialization
-; 0000 00B8 // SPI disabled
-; 0000 00B9 SPCR=0x00;
+; 0000 00A9 
+; 0000 00AA // SPI initialization
+; 0000 00AB // SPI disabled
+; 0000 00AC SPCR=0x00;
 	OUT  0xD,R30
-; 0000 00BA 
-; 0000 00BB // TWI initialization
-; 0000 00BC // TWI disabled
-; 0000 00BD TWCR=0x00;
+; 0000 00AD 
+; 0000 00AE // TWI initialization
+; 0000 00AF // TWI disabled
+; 0000 00B0 TWCR=0x00;
 	OUT  0x36,R30
-; 0000 00BE 
-; 0000 00BF // I2C Bus initialization
-; 0000 00C0 i2c_init();
+; 0000 00B1 
+; 0000 00B2 // I2C Bus initialization
+; 0000 00B3 i2c_init();
 	CALL _i2c_init
-; 0000 00C1 
-; 0000 00C2 // Alphanumeric LCD initialization
-; 0000 00C3 // Connections specified in the
-; 0000 00C4 // Project|Configure|C Compiler|Libraries|Alphanumeric LCD menu:
-; 0000 00C5 // RS - PORTC Bit 0
-; 0000 00C6 // RD - PORTC Bit 1
-; 0000 00C7 // EN - PORTC Bit 2
-; 0000 00C8 // D4 - PORTC Bit 4
-; 0000 00C9 // D5 - PORTC Bit 5
-; 0000 00CA // D6 - PORTC Bit 6
-; 0000 00CB // D7 - PORTC Bit 7
-; 0000 00CC // Characters/line: 16
-; 0000 00CD rc = init_robot();
+; 0000 00B4 
+; 0000 00B5 // Alphanumeric LCD initialization
+; 0000 00B6 // Connections specified in the
+; 0000 00B7 // Project|Configure|C Compiler|Libraries|Alphanumeric LCD menu:
+; 0000 00B8 // RS - PORTC Bit 0
+; 0000 00B9 // RD - PORTC Bit 1
+; 0000 00BA // EN - PORTC Bit 2
+; 0000 00BB // D4 - PORTC Bit 4
+; 0000 00BC // D5 - PORTC Bit 5
+; 0000 00BD // D6 - PORTC Bit 6
+; 0000 00BE // D7 - PORTC Bit 7
+; 0000 00BF // Characters/line: 16
+; 0000 00C0 rc = init_robot();
 	RCALL _init_robot
 	MOVW R6,R30
-; 0000 00CE if(rc) bug(rc);
+; 0000 00C1 if(rc) bug(rc);
 	MOV  R0,R6
 	OR   R0,R7
 	BREQ _0x5
 	ST   -Y,R7
 	ST   -Y,R6
-	CALL _bug
-; 0000 00CF lcd_init(16);
+	RCALL _bug
+; 0000 00C2 lcd_init(16);
 _0x5:
 	LDI  R30,LOW(16)
 	ST   -Y,R30
 	CALL _lcd_init
-; 0000 00D0 for(i=0;i<18;i++) sensors[i] = 1;
+; 0000 00C3 for(i=0;i<18;i++) sensors[i] = 1;
 	CLR  R8
 	CLR  R9
 _0x7:
-	CALL SUBOPT_0x0
+	LDI  R30,LOW(18)
+	LDI  R31,HIGH(18)
+	CP   R8,R30
+	CPC  R9,R31
 	BRGE _0x8
-	CALL SUBOPT_0x1
+	MOVW R30,R8
+	LDI  R26,LOW(_sensors)
+	LDI  R27,HIGH(_sensors)
+	CALL SUBOPT_0x0
 	MOVW R30,R8
 	ADIW R30,1
 	MOVW R8,R30
 	RJMP _0x7
 _0x8:
-; 0000 00D1 for(i=0;i<18;i++) workingSensors[i] = 1;
-	CLR  R8
-	CLR  R9
-_0xA:
-	CALL SUBOPT_0x0
-	BRGE _0xB
-	CALL SUBOPT_0x2
-	MOVW R30,R8
-	ADIW R30,1
-	MOVW R8,R30
-	RJMP _0xA
-_0xB:
-; 0000 00D2 while (1)
+; 0000 00C4 while (1)
+_0x9:
+; 0000 00C5       {
+; 0000 00C6       set_muxs(4);
+	LDI  R30,LOW(4)
+	LDI  R31,HIGH(4)
+	ST   -Y,R31
+	ST   -Y,R30
+	RCALL _set_muxs
+; 0000 00C7       }
+	RJMP _0x9
+; 0000 00C8 }
 _0xC:
-; 0000 00D3       {
-; 0000 00D4         //set_muxs(15);
-; 0000 00D5         //delay_us(1);
-; 0000 00D6         //if(MUXOB == 0) compass_calib();
-; 0000 00D7         //init_compass();
-; 0000 00D8         checksensors();
-	CALL _checksensors
-; 0000 00D9 //        move = getMovement();
-; 0000 00DA //        if(move == 0) goforIt(-255,0,255); else
-; 0000 00DB //        if(move == 0.5) goforIt(-208,-46,255); else
-; 0000 00DC //        if(move == 1) goforIt(-165,-88,255); else
-; 0000 00DD //        if(move == 1.5) goforIt(-127,-127,255); else
-; 0000 00DE //        if(move == 2) goforIt(-88,-165,255); else
-; 0000 00DF //        if(move == 2.5) goforIt(-46,-208,255); else
-; 0000 00E0 //        if(move == 3) goforIt(0,-255,255); else
-; 0000 00E1 //        if(move == 3.5) goforIt(46,-255,208); else
-; 0000 00E2 //        if(move == 4) goforIt(88,-255,165); else
-; 0000 00E3 //        if(move == 4.5) goforIt(127,-255,127); else
-; 0000 00E4 //        if(move == 5) goforIt(165,-255,88); else
-; 0000 00E5 //        if(move == 5.5) goforIt(208,-255,46); else
-; 0000 00E6 //        if(move == 6) goforIt(255,-255,0); else
-; 0000 00E7 //        if(move == 6.5) goforIt(255,-208,-46); else
-; 0000 00E8 //        if(move == 7) goforIt(255,-165,-88); else
-; 0000 00E9 //        if(move == 7.5) goforIt(255,-127,-127); else
-; 0000 00EA //        if(move == 8) goforIt(255,-88,-165); else
-; 0000 00EB //        if(move == 8.5) goforIt(255,-46,-208); else
-; 0000 00EC //        if(move == 9) goforIt(255,0,-255); else
-; 0000 00ED //        if(move == 9.5) goforIt(208,46,-255); else
-; 0000 00EE //        if(move == 10) goforIt(165,88,-255); else
-; 0000 00EF //        if(move == 10.5) goforIt(127,127,-255); else
-; 0000 00F0 //        if(move == 11) goforIt(88,165,-255); else
-; 0000 00F1 //        if(move == 11.5) goforIt(46,208,-255); else
-; 0000 00F2 //        if(move == 12) goforIt(0,255,-255); else
-; 0000 00F3 //        if(move == 12.5) goforIt(-46,255,-208); else
-; 0000 00F4 //        if(move == 13) goforIt(-88,255,-165); else
-; 0000 00F5 //        if(move == 13.5) goforIt(-127,255,-127); else
-; 0000 00F6 //        if(move == 14) goforIt(-165,255,-88); else
-; 0000 00F7 //        if(move == 14.5) goforIt(-208,255,-46); else
-; 0000 00F8 //        if(move == 15) goforIt(-255,255,0); else
-; 0000 00F9 //        if(move == 15.5) goforIt(-255,208,46); else
-; 0000 00FA //        if(move == 16) goforIt(-255,165,88); else
-; 0000 00FB //        if(move == 16.5) goforIt(-255,127,127); else
-; 0000 00FC //        if(move == 17) goforIt(-255,88,165); else
-; 0000 00FD //        if(move == 17.5) goforIt(-255,46,208);
-; 0000 00FE //        motor(-motorSpeed1,-motorSpeed2,-motorSpeed3);
-; 0000 00FF       }
 	RJMP _0xC
-; 0000 0100 }
-_0xF:
-	RJMP _0xF
 ;void write_int(int x, int y, int value) {
-; 0000 0101 void write_int(int x, int y, int value) {
-; 0000 0102     char s[4];
-; 0000 0103     lcd_gotoxy(x,y);
+; 0000 00C9 void write_int(int x, int y, int value) {
+; 0000 00CA     char s[4];
+; 0000 00CB     lcd_gotoxy(x,y);
 ;	x -> Y+8
 ;	y -> Y+6
 ;	value -> Y+4
 ;	s -> Y+0
-; 0000 0104     sprintf(s, "%d", value);
-; 0000 0105     lcd_puts(s);
-; 0000 0106 }
+; 0000 00CC     sprintf(s, "%d", value);
+; 0000 00CD     lcd_puts(s);
+; 0000 00CE }
 ;int init_robot() {
-; 0000 0107 int init_robot() {
+; 0000 00CF int init_robot() {
 _init_robot:
-; 0000 0108     init_switches();
-	CALL _init_switches
-; 0000 0109     if(lcd_enabled) lcd_init(16);
+; 0000 00D0     init_switches();
+	RCALL _init_switches
+; 0000 00D1     if(lcd_enabled) lcd_init(16);
 	MOV  R0,R4
 	OR   R0,R5
-	BREQ _0x10
+	BREQ _0xD
 	LDI  R30,LOW(16)
 	ST   -Y,R30
 	CALL _lcd_init
-; 0000 010A     rc = init_sensors();
-_0x10:
-	CALL _init_sensors
+; 0000 00D2     rc = init_sensors();
+_0xD:
+	RCALL _init_sensors
 	MOVW R6,R30
-; 0000 010B     if(rc) return rc;
+; 0000 00D3     if(rc) return rc;
 	MOV  R0,R6
 	OR   R0,R7
-	BREQ _0x11
+	BREQ _0xE
 	MOVW R30,R6
 	RET
-; 0000 010C     return 0;
-_0x11:
+; 0000 00D4     return 0;
+_0xE:
 	LDI  R30,LOW(0)
 	LDI  R31,HIGH(0)
 	RET
-; 0000 010D }
-;void set_muxs(int pin) {
-; 0000 010E void set_muxs(int pin) {
-_set_muxs:
-; 0000 010F     #asm
+; 0000 00D5 }
+;void set_mux(int pin) {
+; 0000 00D6 void set_mux(int pin) {
+_set_mux:
+; 0000 00D7     MUXD = (pin>>3);
 ;	pin -> Y+0
-; 0000 0110     LD R30,y
-    LD R30,y
-; 0000 0111     LD R31,Y
-    LD R31,Y
-; 0000 0112     ROR R30
-    ROR R30
-; 0000 0113     ROR R30
-    ROR R30
-; 0000 0114     ROR R30
-    ROR R30
-; 0000 0115     EOR R30,R31
-    EOR R30,R31
-; 0000 0116     ROR R30
-    ROR R30
-; 0000 0117     BRCS first
-    BRCS first
-; 0000 0118     ; 0000 006D PORTA.6=0;
-    ; 0000 006D PORTA.6=0;
-; 0000 0119         CBI  0x1B,6
-        CBI  0x1B,6
-; 0000 011A         JMP next
-        JMP next
-; 0000 011B     first:
-    first:
-; 0000 011C     ; 0000 006D PORTA.6=1;
-    ; 0000 006D PORTA.6=1;
-; 0000 011D         SBI  0x1B,6
-        SBI  0x1B,6
-; 0000 011E     next:
-    next:
-; 0000 011F     MOV R30,R31
-    MOV R30,R31
-; 0000 0120     ROR R30
-    ROR R30
-; 0000 0121     ROR R30
-    ROR R30
-; 0000 0122     EOR R30,R31
-    EOR R30,R31
-; 0000 0123     ROR R30
-    ROR R30
-; 0000 0124     ROR R30
-    ROR R30
-; 0000 0125     BRCS second
-    BRCS second
-; 0000 0126     ; 0000 006D PORTA.7=0;
-    ; 0000 006D PORTA.7=0;
-; 0000 0127         CBI  0x1B,7
-        CBI  0x1B,7
-; 0000 0128         JMP nextt
-        JMP nextt
-; 0000 0129     second:
-    second:
-; 0000 012A     ; 0000 006D PORTA.7=1;
-    ; 0000 006D PORTA.7=1;
-; 0000 012B         SBI  0x1B,7
-        SBI  0x1B,7
-; 0000 012C     nextt:
-    nextt:
-; 0000 012D     MOV R30,R31
-    MOV R30,R31
-; 0000 012E     ROR R30
-    ROR R30
-; 0000 012F     EOR R30,R31
-    EOR R30,R31
-; 0000 0130     ROR R30
-    ROR R30
-; 0000 0131     ROR R30
-    ROR R30
-; 0000 0132     ROR R30
-    ROR R30
-; 0000 0133     BRCS third
-    BRCS third
-; 0000 0134     ; 0000 006D PORTD.6=0;
-    ; 0000 006D PORTD.6=0;
-; 0000 0135         CBI  0x12,6
-        CBI  0x12,6
-; 0000 0136         JMP nexttt
-        JMP nexttt
-; 0000 0137     third:
-    third:
-; 0000 0138     ; 0000 006D PORTD.6=1;
-    ; 0000 006D PORTD.6=1;
-; 0000 0139         SBI  0x12,6
-        SBI  0x12,6
-; 0000 013A     nexttt:
-    nexttt:
-; 0000 013B     MOV R30,R31
-    MOV R30,R31
-; 0000 013C     ROR R30
-    ROR R30
-; 0000 013D     ROR R30
-    ROR R30
-; 0000 013E     ROR R30
-    ROR R30
-; 0000 013F     ROR R30
-    ROR R30
-; 0000 0140     BRCS fourth
-    BRCS fourth
-; 0000 0141     ; 0000 006D PORTD.7=0;
-    ; 0000 006D PORTD.7=0;
-; 0000 0142         CBI  0x12,7
-        CBI  0x12,7
-; 0000 0143         JMP endzz
-        JMP endzz
-; 0000 0144     fourth:
-    fourth:
-; 0000 0145     ; 0000 006D PORTD.7=1;
-    ; 0000 006D PORTD.7=1;
-; 0000 0146         SBI  0x12,7
-        SBI  0x12,7
-; 0000 0147     endzz:
-    endzz:
-; 0000 0148     #endasm
-; 0000 0149 
-; 0000 014A }
+	LD   R30,Y
+	LDD  R31,Y+1
+	CALL __ASRW3
+	CPI  R30,0
+	BRNE _0xF
+	CBI  0x12,7
+	RJMP _0x10
+_0xF:
+	SBI  0x12,7
+_0x10:
+; 0000 00D8     MUXC = (pin>>3) & 1;
+	LD   R30,Y
+	LDD  R31,Y+1
+	CALL __ASRW3
+	ANDI R30,LOW(0x1)
+	BRNE _0x11
+	CBI  0x12,6
+	RJMP _0x12
+_0x11:
+	SBI  0x12,6
+_0x12:
+; 0000 00D9     MUXB = (pin>>2) & 1;
+	LD   R30,Y
+	LDD  R31,Y+1
+	CALL __ASRW2
+	ANDI R30,LOW(0x1)
+	BRNE _0x13
+	CBI  0x1B,7
+	RJMP _0x14
+_0x13:
+	SBI  0x1B,7
+_0x14:
+; 0000 00DA     MUXA = (pin>>1) & 1;
+	LD   R30,Y
+	LDD  R31,Y+1
+	ASR  R31
+	ROR  R30
+	ANDI R30,LOW(0x1)
+	BRNE _0x15
+	CBI  0x1B,6
+	RJMP _0x16
+_0x15:
+	SBI  0x1B,6
+_0x16:
+; 0000 00DB }
+	JMP  _0x20C0002
+;void set_muxs(int pin) {
+; 0000 00DC void set_muxs(int pin) {
+_set_muxs:
+; 0000 00DD     MUXD = (pin/8);
+;	pin -> Y+0
+	CALL SUBOPT_0x1
+	CPI  R30,0
+	BRNE _0x17
+	CBI  0x12,7
+	RJMP _0x18
+_0x17:
+	SBI  0x12,7
+_0x18:
+; 0000 00DE     MUXC = (pin/8) ^ (pin/4)%2;
+	CALL SUBOPT_0x1
+	MOV  R22,R30
+	LD   R26,Y
+	LDD  R27,Y+1
+	LDI  R30,LOW(4)
+	LDI  R31,HIGH(4)
+	CALL SUBOPT_0x2
+	BRNE _0x19
+	CBI  0x12,6
+	RJMP _0x1A
+_0x19:
+	SBI  0x12,6
+_0x1A:
+; 0000 00DF     MUXB = (pin/8) ^ (pin/2)%2;
+	CALL SUBOPT_0x1
+	MOV  R22,R30
+	LD   R26,Y
+	LDD  R27,Y+1
+	LDI  R30,LOW(2)
+	LDI  R31,HIGH(2)
+	CALL SUBOPT_0x2
+	BRNE _0x1B
+	CBI  0x1B,7
+	RJMP _0x1C
+_0x1B:
+	SBI  0x1B,7
+_0x1C:
+; 0000 00E0     MUXA = (pin/8) ^ pin%2;
+	CALL SUBOPT_0x1
+	MOV  R22,R30
+	LD   R26,Y
+	LDD  R27,Y+1
+	LDI  R30,LOW(2)
+	LDI  R31,HIGH(2)
+	CALL __MODW21
+	EOR  R30,R22
+	BRNE _0x1D
+	CBI  0x1B,6
+	RJMP _0x1E
+_0x1D:
+	SBI  0x1B,6
+_0x1E:
+; 0000 00E1 
+; 0000 00E2 }
 	JMP  _0x20C0002
 ;void init_switches(){
-; 0000 014B void init_switches(){
+; 0000 00E3 void init_switches(){
 _init_switches:
-; 0000 014C     set_muxs(LCD);
-	LDI  R30,LOW(9)
-	LDI  R31,HIGH(9)
-	CALL SUBOPT_0x3
-; 0000 014D     lcd_enabled = MUXOB;
+; 0000 00E4     set_mux(LCD);
+	LDI  R30,LOW(15)
+	LDI  R31,HIGH(15)
+	ST   -Y,R31
+	ST   -Y,R30
+	RCALL _set_mux
+; 0000 00E5     lcd_enabled = MUXOB;
 	LDI  R30,0
 	SBIC 0x19,5
 	LDI  R30,1
 	MOV  R4,R30
 	CLR  R5
-; 0000 014E     //set_mux(STRICT);
-; 0000 014F     //strict_set = MUXOB;
-; 0000 0150 }
+; 0000 00E6     //set_mux(STRICT);
+; 0000 00E7     //strict_set = MUXOB;
+; 0000 00E8 }
 	RET
 ;int init_sensors() {
-; 0000 0151 int init_sensors() {
+; 0000 00E9 int init_sensors() {
 _init_sensors:
-; 0000 0152     char sensorHolder;
-; 0000 0153     char swtch;
-; 0000 0154     for(i=0;i<18;i++) {
+; 0000 00EA     char sensorHolder;
+; 0000 00EB     char swtch;
+; 0000 00EC     for(i=0;i<18;i++) {
 	ST   -Y,R17
 	ST   -Y,R16
 ;	sensorHolder -> R17
 ;	swtch -> R16
 	CLR  R8
 	CLR  R9
-_0x13:
-	CALL SUBOPT_0x0
-	BRGE _0x14
-; 0000 0155         sensorHolder = i;
+_0x20:
+	LDI  R30,LOW(18)
+	LDI  R31,HIGH(18)
+	CP   R8,R30
+	CPC  R9,R31
+	BRGE _0x21
+; 0000 00ED         sensorHolder = i;
 	MOV  R17,R8
-; 0000 0156         if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
+; 0000 00EE         if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
 	LDI  R30,LOW(15)
 	LDI  R31,HIGH(15)
 	CP   R30,R8
 	CPC  R31,R9
-	BRGE _0x15
-	CALL SUBOPT_0x4
-	RJMP _0x16
-_0x15:
+	BRGE _0x22
+	LDI  R16,LOW(1)
+	MOV  R30,R17
+	LDI  R31,0
+	SBIW R30,16
+	MOV  R17,R30
+	RJMP _0x23
+_0x22:
 	LDI  R16,LOW(0)
-_0x16:
-; 0000 0157         set_muxs(sensorHolder);
-	CALL SUBOPT_0x5
-; 0000 0158         if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
+_0x23:
+; 0000 00EF         set_mux(sensorHolder);
+	MOV  R30,R17
+	LDI  R31,0
+	ST   -Y,R31
+	ST   -Y,R30
+	RCALL _set_mux
+; 0000 00F0         if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
 	CPI  R16,0
-	BREQ _0x18
+	BREQ _0x25
 	LDI  R30,0
 	SBIC 0x19,5
 	LDI  R30,1
-	RJMP _0x19
-_0x18:
+	RJMP _0x26
+_0x25:
 	LDI  R30,0
 	SBIC 0x19,4
 	LDI  R30,1
-_0x19:
+_0x26:
 	CPI  R30,0
-	BRNE _0x17
-	CALL SUBOPT_0x2
-; 0000 0159     }
-_0x17:
+	BRNE _0x24
+	MOVW R30,R8
+	LDI  R26,LOW(_workingSensors)
+	LDI  R27,HIGH(_workingSensors)
+	CALL SUBOPT_0x0
+; 0000 00F1     }
+_0x24:
 	MOVW R30,R8
 	ADIW R30,1
 	MOVW R8,R30
-	RJMP _0x13
-_0x14:
-; 0000 015A     return 0;
+	RJMP _0x20
+_0x21:
+; 0000 00F2     return 0;
 	LDI  R30,LOW(0)
 	LDI  R31,HIGH(0)
-	RJMP _0x20C0003
-; 0000 015B }
+	LD   R16,Y+
+	LD   R17,Y+
+	RET
+; 0000 00F3 }
 ;void bug(int error) {
-; 0000 015C void bug(int error) {
+; 0000 00F4 void bug(int error) {
 _bug:
-; 0000 015D     if(lcd_enabled) {
+; 0000 00F5     if(lcd_enabled) {
 ;	error -> Y+0
 	MOV  R0,R4
 	OR   R0,R5
-	BREQ _0x1B
-; 0000 015E         lcd_puts("BUG on: ");
-	__POINTW1MN _0x1C,0
+	BREQ _0x28
+; 0000 00F6         lcd_puts("BUG on: ");
+	__POINTW1MN _0x29,0
 	ST   -Y,R31
 	ST   -Y,R30
 	CALL _lcd_puts
-; 0000 015F         lcd_putchar('0' + error);
+; 0000 00F7         lcd_putchar('0' + error);
 	LD   R30,Y
 	SUBI R30,-LOW(48)
 	ST   -Y,R30
 	CALL _lcd_putchar
-; 0000 0160     } else {
-	RJMP _0x1D
-_0x1B:
-; 0000 0161         while(1);}
-_0x1E:
-	RJMP _0x1E
-_0x1D:
-; 0000 0162 }
+; 0000 00F8     } else {
+	RJMP _0x2A
+_0x28:
+; 0000 00F9         while(1);}
+_0x2B:
+	RJMP _0x2B
+_0x2A:
+; 0000 00FA }
 	JMP  _0x20C0002
 
 	.DSEG
-_0x1C:
+_0x29:
 	.BYTE 0x9
 ;void checksensors() {
-; 0000 0163 void checksensors() {
+; 0000 00FB void checksensors() {
 
 	.CSEG
-_checksensors:
-; 0000 0164     char sensorHolder;
-; 0000 0165     char swtch;
-; 0000 0166     lcd_gotoxy(0,0);
-	ST   -Y,R17
-	ST   -Y,R16
+; 0000 00FC     char sensorHolder;
+; 0000 00FD     char swtch;
+; 0000 00FE     for(i=0;i<18;i++) {
 ;	sensorHolder -> R17
 ;	swtch -> R16
-	LDI  R30,LOW(0)
-	ST   -Y,R30
-	ST   -Y,R30
-	CALL _lcd_gotoxy
-; 0000 0167     for(i=0;i<18;i++) {
-	CLR  R8
-	CLR  R9
-_0x22:
-	CALL SUBOPT_0x0
-	BRGE _0x23
-; 0000 0168         if(workingSensors[i] == 0) sensors[i] = 1; else {
-	MOVW R30,R8
-	LDI  R26,LOW(_workingSensors)
-	LDI  R27,HIGH(_workingSensors)
-	CALL SUBOPT_0x6
-	CALL __GETW1P
-	SBIW R30,0
-	BRNE _0x24
-	CALL SUBOPT_0x1
-	RJMP _0x25
-_0x24:
-; 0000 0169             sensorHolder = i;
-	MOV  R17,R8
-; 0000 016A             if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
-	LDI  R30,LOW(15)
-	LDI  R31,HIGH(15)
-	CP   R30,R8
-	CPC  R31,R9
-	BRGE _0x26
-	CALL SUBOPT_0x4
-	RJMP _0x27
-_0x26:
-	LDI  R16,LOW(0)
-_0x27:
-; 0000 016B             set_muxs(sensorHolder);
-	CALL SUBOPT_0x5
-; 0000 016C             sensors[i] = (swtch ? MUXOB : MUXOA);
-	MOVW R30,R8
-	LDI  R26,LOW(_sensors)
-	LDI  R27,HIGH(_sensors)
-	CALL SUBOPT_0x6
-	MOV  R30,R16
-	LDI  R31,0
-	SBIW R30,0
-	BREQ _0x28
-	LDI  R30,0
-	SBIC 0x19,5
-	LDI  R30,1
-	RJMP _0x60
-_0x28:
-	LDI  R30,0
-	SBIC 0x19,4
-	LDI  R30,1
-_0x60:
-	LDI  R31,0
-	ST   X+,R30
-	ST   X,R31
-; 0000 016D             lcd_putchar('0' + sensors[i]);
-	MOVW R30,R8
-	LDI  R26,LOW(_sensors)
-	LDI  R27,HIGH(_sensors)
-	CALL SUBOPT_0x6
-	LD   R30,X
-	SUBI R30,-LOW(48)
-	ST   -Y,R30
-	CALL _lcd_putchar
-; 0000 016E         }
-_0x25:
-; 0000 016F     }
-	MOVW R30,R8
-	ADIW R30,1
-	MOVW R8,R30
-	RJMP _0x22
-_0x23:
-; 0000 0170 
-; 0000 0171 }
-_0x20C0003:
-	LD   R16,Y+
-	LD   R17,Y+
-	RET
+; 0000 00FF         if(workingSensors[i] == 0) sensors[i] = 1; else {
+; 0000 0100             sensorHolder = i;
+; 0000 0101             if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
+; 0000 0102             set_muxs(sensorHolder);
+; 0000 0103             sensors[i] = (swtch ? MUXOB : MUXOA);
+; 0000 0104         }
+; 0000 0105     }
+; 0000 0106 
+; 0000 0107 }
 ;float getMovement() {
-; 0000 0172 float getMovement() {
-; 0000 0173     unsigned char left = 0, right = 0, sum = 0, n = 0;
-; 0000 0174     float ret = 0.0;
-; 0000 0175     for(i=0;i<18;i++) {
+; 0000 0108 float getMovement() {
+; 0000 0109     unsigned char left = 0, right = 0, sum = 0, n = 0;
+; 0000 010A     float ret = 0;
+; 0000 010B     for(i=0;i<18;i++) {
 ;	left -> R17
 ;	right -> R16
 ;	sum -> R19
 ;	n -> R18
 ;	ret -> Y+4
-; 0000 0176         if(sensors[i] == 0) {
-; 0000 0177             sum+= i;
-; 0000 0178             n++;
-; 0000 0179             if(i<5) left++;
-; 0000 017A             if(i>13) right++;
-; 0000 017B         }
-; 0000 017C     }
-; 0000 017D     if(left>0 && right >0) sum += (left * 18);
-; 0000 017E     if (n)
-; 0000 017F         ret = (float) sum/n;
-; 0000 0180     else ret = 100.0;
-; 0000 0181 
-; 0000 0182     if(ret>=18) ret -= 18.0;
-; 0000 0183     sss = 10;
-; 0000 0184     ftoa (ret,1,str);
-; 0000 0185     lcd_gotoxy(5,1);
-; 0000 0186     lcd_puts(str);
-; 0000 0187     return ret;
-; 0000 0188 }
-;void goforIt(int m1, int m2, int m3) {
-; 0000 0189 void goforIt(int m1, int m2, int m3) {
-; 0000 018A     int motors[3];
-; 0000 018B     int maxmotor;
-; 0000 018C     float maxvalue;
-; 0000 018D     motors[0] = m1;
-;	m1 -> Y+16
-;	m2 -> Y+14
-;	m3 -> Y+12
-;	motors -> Y+6
-;	maxmotor -> R16,R17
-;	maxvalue -> Y+2
-; 0000 018E     motors[1] = m2;
-; 0000 018F     motors[2] = m3;
-; 0000 0190     spinSpeed(3,15,10);
-; 0000 0191     motors[0] = motors[0] + motorSpeed;
-; 0000 0192     motors[1] = motors[1] + motorSpeed;
-; 0000 0193     motors[2] = motors[2] + motorSpeed;
-; 0000 0194     maxmotor=0;
-; 0000 0195     if(abs(motors[maxmotor])<abs(motors[1]))maxmotor=1;
-; 0000 0196     if(abs(motors[maxmotor])<abs(motors[2]))maxmotor=2;
-; 0000 0197     maxvalue = (float)255/abs(motors[maxmotor]);
-; 0000 0198     motors[0] = motors[0] * maxvalue ;
-; 0000 0199     motors[1] = motors[1] * maxvalue;
-; 0000 019A     motors[2] = motors[2] * maxvalue;
-; 0000 019B     motorSpeed1 = motors[0];
-; 0000 019C     motorSpeed2 = motors[1];
-; 0000 019D     motorSpeed3 = motors[2];
-; 0000 019E }
-;void spinSpeed(int devidedValue, int addedValue, int correction) {
-; 0000 019F void spinSpeed(int devidedValue, int addedValue, int correction) {
-; 0000 01A0     if(compass<correction && compass>-correction) {
-;	devidedValue -> Y+4
-;	addedValue -> Y+2
-;	correction -> Y+0
-; 0000 01A1         motorSpeed = 0;
-; 0000 01A2     } else {
-; 0000 01A3         if(compass > 0) {
-; 0000 01A4             motorSpeed = (((compass)/(devidedValue) + (addedValue)));
-; 0000 01A5         } else {
-; 0000 01A6             motorSpeed = (((compass)/(devidedValue) - (addedValue)));
-; 0000 01A7         }
-; 0000 01A8     }
-; 0000 01A9 }
-;void init_compass() {
-; 0000 01AA void init_compass() {
-; 0000 01AB     compass = readcmp();
-; 0000 01AC     compass = calc_degree(compass);
-; 0000 01AD }
-;int calc_degree(int a) {
-; 0000 01AE int calc_degree(int a) {
-; 0000 01AF    // write_int(0,1,a);
-; 0000 01B0     a = a-start_point;
-;	a -> Y+0
-; 0000 01B1     if(a > 128) {
-; 0000 01B2         a = a - 256;
-; 0000 01B3     } else if(a < -128) {
-; 0000 01B4        a = a + 256;
-; 0000 01B5     }
-; 0000 01B6     return a;
-; 0000 01B7 }
-;unsigned char readcmp() {
-; 0000 01B8 unsigned char readcmp() {
-; 0000 01B9     unsigned char data;
-; 0000 01BA     i2c_start();
-;	data -> R17
-; 0000 01BB     i2c_write(cmpbus);
-; 0000 01BC     i2c_write(1);
-; 0000 01BD     i2c_start();
-; 0000 01BE     i2c_write(cmpbus | 1);
-; 0000 01BF     data=i2c_read(0);
-; 0000 01C0     i2c_stop();
-; 0000 01C1     return data;
-; 0000 01C2 }
-;void compass_calib(void){
-; 0000 01C3 void compass_calib(void){
-; 0000 01C4     set_muxs(15);
-; 0000 01C5     while (MUXOB == 1);
-; 0000 01C6     delay_ms(100);
-; 0000 01C7     i2c_start();
-; 0000 01C8     i2c_write(cmpbus);
-; 0000 01C9     i2c_write(15);
-; 0000 01CA     i2c_write(0xff);
-; 0000 01CB     i2c_stop();
-; 0000 01CC     lcd_clear();
-; 0000 01CD     lcd_putsf("done");
-; 0000 01CE     delay_ms(500);
-; 0000 01CF     lcd_clear();
-; 0000 01D0     set_muxs(15);
-; 0000 01D1     while (MUXOB == 1);
-; 0000 01D2     delay_ms(100);
-; 0000 01D3     i2c_start();
-; 0000 01D4     i2c_write(cmpbus);
-; 0000 01D5     i2c_write(15);
-; 0000 01D6     i2c_write(0xff);
-; 0000 01D7     i2c_stop();
-; 0000 01D8     lcd_clear();
-; 0000 01D9     lcd_putsf("done");
-; 0000 01DA     delay_ms(500);
-; 0000 01DB     lcd_clear();
-; 0000 01DC     set_muxs(15);
-; 0000 01DD     while (MUXOB == 1);
-; 0000 01DE     delay_ms(100);
-; 0000 01DF     i2c_start();
-; 0000 01E0     i2c_write(cmpbus);
-; 0000 01E1     i2c_write(15);
-; 0000 01E2     i2c_write(0xff);
-; 0000 01E3     i2c_stop();
-; 0000 01E4     lcd_clear();
-; 0000 01E5     lcd_putsf("done");
-; 0000 01E6     delay_ms(500);
-; 0000 01E7     lcd_clear();
-; 0000 01E8     set_muxs(15);
-; 0000 01E9     while (MUXOB == 1);
-; 0000 01EA     delay_ms(100);
-; 0000 01EB     i2c_start();
-; 0000 01EC     i2c_write(cmpbus);
-; 0000 01ED     i2c_write(15);
-; 0000 01EE     i2c_write(0xff);
-; 0000 01EF     i2c_stop();
-; 0000 01F0     lcd_clear();
-; 0000 01F1     lcd_putsf("done");
-; 0000 01F2     delay_ms(500);
-; 0000 01F3     lcd_clear();
-; 0000 01F4 }
-;///////////--------------------------- Motor Function ------------------------------///////////
-;void motor(int a, int b, int c) {
-; 0000 01F6 void motor(int a, int b, int c) {
-; 0000 01F7     a = a*RDC_FOR_MAXON;
-;	a -> Y+4
-;	b -> Y+2
-;	c -> Y+0
-; 0000 01F8     b = b*RDC_FOR_MAXON;
-; 0000 01F9     c = c*RDC_FOR_MAXON;
-; 0000 01FA     if(a>0) {
-; 0000 01FB         PORTB.2 = 0;
-; 0000 01FC         OCR0 = a;
-; 0000 01FD     } else {
-; 0000 01FE         PORTB.2 = 1;
-; 0000 01FF         a = a + 255;
-; 0000 0200         OCR0 = a;
-; 0000 0201     }
-; 0000 0202     if(c>0) {
-; 0000 0203         PORTD.2 = 0;
-; 0000 0204         OCR1B = c;
-; 0000 0205     } else {
-; 0000 0206         PORTD.2 = 1;
-; 0000 0207         c = c + 255;
-; 0000 0208         OCR1B = c;
-; 0000 0209     }
-; 0000 020A     if(b>0) {
-; 0000 020B         PORTD.3 = 0;
-; 0000 020C         OCR1A = b;
-; 0000 020D     } else {
-; 0000 020E         PORTD.3 = 1;
-; 0000 020F         b = b + 255;
-; 0000 0210         OCR1A = b;
-; 0000 0211     }
-; 0000 0212 }
+; 0000 010C         if(sensors[i] == 0) {
+; 0000 010D             sum+= i;
+; 0000 010E             n++;
+; 0000 010F             if(i<5) left++;
+; 0000 0110             if(i>13) right++;
+; 0000 0111         }
+; 0000 0112     }
+; 0000 0113     if(left>0 && right >0) sum += (left * 18);
+; 0000 0114     ret = (float) sum/n;
+; 0000 0115     if(ret>18) ret -= 18;
+; 0000 0116     return ret;
+; 0000 0117 }
 	#ifndef __SLEEP_DEFINED__
 	#define __SLEEP_DEFINED__
 	.EQU __se_bit=0x40
@@ -2220,40 +1931,34 @@ _lcd_gotoxy:
 	ADD  R30,R26
 	ST   -Y,R30
 	RCALL __lcd_write_data
-	LDD  R30,Y+1
-	STS  __lcd_x,R30
-	LD   R30,Y
-	STS  __lcd_y,R30
+	LDD  R11,Y+1
+	LDD  R10,Y+0
 _0x20C0002:
 	ADIW R28,2
 	RET
 _lcd_clear:
 	LDI  R30,LOW(2)
-	CALL SUBOPT_0x7
+	CALL SUBOPT_0x3
 	LDI  R30,LOW(12)
 	ST   -Y,R30
 	RCALL __lcd_write_data
 	LDI  R30,LOW(1)
-	CALL SUBOPT_0x7
+	CALL SUBOPT_0x3
 	LDI  R30,LOW(0)
-	STS  __lcd_y,R30
-	STS  __lcd_x,R30
+	MOV  R10,R30
+	MOV  R11,R30
 	RET
 _lcd_putchar:
 	LD   R26,Y
 	CPI  R26,LOW(0xA)
 	BREQ _0x2040011
-	LDS  R30,__lcd_maxx
-	LDS  R26,__lcd_x
-	CP   R26,R30
+	CP   R11,R13
 	BRLO _0x2040010
 _0x2040011:
 	LDI  R30,LOW(0)
 	ST   -Y,R30
-	LDS  R30,__lcd_y
-	SUBI R30,-LOW(1)
-	STS  __lcd_y,R30
-	ST   -Y,R30
+	INC  R10
+	ST   -Y,R10
 	RCALL _lcd_gotoxy
 	LD   R26,Y
 	CPI  R26,LOW(0xA)
@@ -2261,9 +1966,7 @@ _0x2040011:
 	RJMP _0x20C0001
 _0x2040013:
 _0x2040010:
-	LDS  R30,__lcd_x
-	SUBI R30,-LOW(1)
-	STS  __lcd_x,R30
+	INC  R11
 	SBI  0x15,0
 	LD   R30,Y
 	ST   -Y,R30
@@ -2299,8 +2002,8 @@ _lcd_init:
 	CBI  0x15,2
 	CBI  0x15,0
 	CBI  0x15,1
+	LDD  R13,Y+0
 	LD   R30,Y
-	STS  __lcd_maxx,R30
 	SUBI R30,-LOW(128)
 	__PUTB1MN __base_y_G102,2
 	LD   R30,Y
@@ -2311,9 +2014,9 @@ _lcd_init:
 	ST   -Y,R31
 	ST   -Y,R30
 	CALL _delay_ms
-	CALL SUBOPT_0x8
-	CALL SUBOPT_0x8
-	CALL SUBOPT_0x8
+	CALL SUBOPT_0x4
+	CALL SUBOPT_0x4
+	CALL SUBOPT_0x4
 	LDI  R30,LOW(32)
 	ST   -Y,R30
 	RCALL __lcd_write_nibble_G102
@@ -2346,103 +2049,45 @@ _workingSensors:
 	.BYTE 0x24
 _sensors:
 	.BYTE 0x24
-_str:
-	.BYTE 0x4
-_sss:
-	.BYTE 0x4
-_motorSpeed2:
-	.BYTE 0x2
-_motorSpeed3:
-	.BYTE 0x2
-_compass:
-	.BYTE 0x2
-
-	.ESEG
-_start_point:
-	.BYTE 0x2
-
-	.DSEG
 __seed_G101:
 	.BYTE 0x4
 __base_y_G102:
 	.BYTE 0x4
-__lcd_x:
-	.BYTE 0x1
-__lcd_y:
-	.BYTE 0x1
-__lcd_maxx:
-	.BYTE 0x1
 
 	.CSEG
-;OPTIMIZER ADDED SUBROUTINE, CALLED 4 TIMES, CODE SIZE REDUCTION:3 WORDS
+;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:3 WORDS
 SUBOPT_0x0:
-	LDI  R30,LOW(18)
-	LDI  R31,HIGH(18)
-	CP   R8,R30
-	CPC  R9,R31
+	LSL  R30
+	ROL  R31
+	ADD  R26,R30
+	ADC  R27,R31
+	LDI  R30,LOW(1)
+	LDI  R31,HIGH(1)
+	ST   X+,R30
+	ST   X,R31
 	RET
 
-;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:6 WORDS
+;OPTIMIZER ADDED SUBROUTINE, CALLED 4 TIMES, CODE SIZE REDUCTION:9 WORDS
 SUBOPT_0x1:
-	MOVW R30,R8
-	LDI  R26,LOW(_sensors)
-	LDI  R27,HIGH(_sensors)
-	LSL  R30
-	ROL  R31
-	ADD  R26,R30
-	ADC  R27,R31
-	LDI  R30,LOW(1)
-	LDI  R31,HIGH(1)
-	ST   X+,R30
-	ST   X,R31
+	LD   R26,Y
+	LDD  R27,Y+1
+	LDI  R30,LOW(8)
+	LDI  R31,HIGH(8)
+	CALL __DIVW21
 	RET
 
-;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:6 WORDS
+;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:3 WORDS
 SUBOPT_0x2:
-	MOVW R30,R8
-	LDI  R26,LOW(_workingSensors)
-	LDI  R27,HIGH(_workingSensors)
-	LSL  R30
-	ROL  R31
-	ADD  R26,R30
-	ADC  R27,R31
-	LDI  R30,LOW(1)
-	LDI  R31,HIGH(1)
-	ST   X+,R30
-	ST   X,R31
-	RET
-
-;OPTIMIZER ADDED SUBROUTINE, CALLED 3 TIMES, CODE SIZE REDUCTION:1 WORDS
-SUBOPT_0x3:
-	ST   -Y,R31
-	ST   -Y,R30
-	JMP  _set_muxs
-
-;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:2 WORDS
-SUBOPT_0x4:
-	LDI  R16,LOW(1)
-	MOV  R30,R17
-	LDI  R31,0
-	SBIW R30,16
-	MOV  R17,R30
-	RET
-
-;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:1 WORDS
-SUBOPT_0x5:
-	MOV  R30,R17
-	LDI  R31,0
-	RJMP SUBOPT_0x3
-
-;OPTIMIZER ADDED SUBROUTINE, CALLED 3 TIMES, CODE SIZE REDUCTION:1 WORDS
-SUBOPT_0x6:
-	LSL  R30
-	ROL  R31
-	ADD  R26,R30
-	ADC  R27,R31
+	CALL __DIVW21
+	MOVW R26,R30
+	LDI  R30,LOW(2)
+	LDI  R31,HIGH(2)
+	CALL __MODW21
+	EOR  R30,R22
 	RET
 
 ;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:4 WORDS
-SUBOPT_0x7:
+SUBOPT_0x3:
 	ST   -Y,R30
 	CALL __lcd_write_data
 	LDI  R30,LOW(3)
@@ -2452,7 +2097,7 @@ SUBOPT_0x7:
 	JMP  _delay_ms
 
 ;OPTIMIZER ADDED SUBROUTINE, CALLED 3 TIMES, CODE SIZE REDUCTION:9 WORDS
-SUBOPT_0x8:
+SUBOPT_0x4:
 	LDI  R30,LOW(48)
 	ST   -Y,R30
 	CALL __lcd_write_nibble_G102
@@ -2576,10 +2221,88 @@ __delay_ms0:
 __delay_ms1:
 	ret
 
-__GETW1P:
-	LD   R30,X+
-	LD   R31,X
-	SBIW R26,1
+__ANEGW1:
+	NEG  R31
+	NEG  R30
+	SBCI R31,0
+	RET
+
+__ASRW3:
+	ASR  R31
+	ROR  R30
+__ASRW2:
+	ASR  R31
+	ROR  R30
+	ASR  R31
+	ROR  R30
+	RET
+
+__DIVW21U:
+	CLR  R0
+	CLR  R1
+	LDI  R25,16
+__DIVW21U1:
+	LSL  R26
+	ROL  R27
+	ROL  R0
+	ROL  R1
+	SUB  R0,R30
+	SBC  R1,R31
+	BRCC __DIVW21U2
+	ADD  R0,R30
+	ADC  R1,R31
+	RJMP __DIVW21U3
+__DIVW21U2:
+	SBR  R26,1
+__DIVW21U3:
+	DEC  R25
+	BRNE __DIVW21U1
+	MOVW R30,R26
+	MOVW R26,R0
+	RET
+
+__DIVW21:
+	RCALL __CHKSIGNW
+	RCALL __DIVW21U
+	BRTC __DIVW211
+	RCALL __ANEGW1
+__DIVW211:
+	RET
+
+__MODW21:
+	CLT
+	SBRS R27,7
+	RJMP __MODW211
+	COM  R26
+	COM  R27
+	ADIW R26,1
+	SET
+__MODW211:
+	SBRC R31,7
+	RCALL __ANEGW1
+	RCALL __DIVW21U
+	MOVW R30,R26
+	BRTC __MODW212
+	RCALL __ANEGW1
+__MODW212:
+	RET
+
+__CHKSIGNW:
+	CLT
+	SBRS R31,7
+	RJMP __CHKSW1
+	RCALL __ANEGW1
+	SET
+__CHKSW1:
+	SBRS R27,7
+	RJMP __CHKSW2
+	COM  R26
+	COM  R27
+	ADIW R26,1
+	BLD  R0,0
+	INC  R0
+	BST  R0,0
+__CHKSW2:
 	RET
 
 ;END OF CODE MARKER

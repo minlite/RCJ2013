@@ -55,12 +55,13 @@
 ;#include <i2c.h>
 ;#include <delay.h>
 ;#include <stdlib.h>
-;
 ;// Alphanumeric LCD Module functions
 ;#include <alcd.h>
 ;
 ;// Declare your global variables here
 ;
+;#define cmpbus 0xC0
+;#define RDC_FOR_MAXON 0.6
 ;
 ;/* MUX ADDRESS */
 ;#define MUXA PORTA.6
@@ -74,8 +75,8 @@
 ;
 ;
 ;/* MUX PINS*/
-;#define LCD 15
-;#define STRICT 14
+;#define LCD 9
+;#define STRICT 10
 ;
 ;/* Switches varibles */
 ;int lcd_enabled = 0;
@@ -84,14 +85,19 @@
 ;/* Define function prototypes so we can use this functions globally */
 ;int init_robot();
 ;void write_int(int x, int y, int value);
-;void set_mux(int pin);
 ;int init_sensors();
 ;void init_switches();
 ;void bug(int error);
 ;void checksensors();
 ;float getMovement();
-;
-;void lcd_writeint(int x, int y, int value);
+;void set_muxs(int pin);
+;void goforIt(int m1, int m2, int m3);
+;void spinSpeed(int devidedValue, int addedValue, int correction);
+;void init_compass();
+;int calc_degree(int a);
+;void compass_calib();
+;unsigned char readcmp();
+;void motor(int a, int b, int c);
 ;
 ;/* Define global variables */
 ;
@@ -101,210 +107,218 @@
 	.DSEG
 ;int sensors[18] = {1}; // Sensor Values Array
 ;int i; // For loop iterator
-;float move;
+;char str[4];
+;float move,sss;
+;int motorSpeed;
+;int motorSpeed1;
+;int motorSpeed2;
+;int motorSpeed3;
+;int compass;
+;eeprom int start_point;
+;
 ;void main(void)
-; 0000 004B {
+; 0000 0059 {
 
 	.CSEG
 ;PCODE: $00000012 VOL: 0
-; 0000 004C // Declare your local variables here
-; 0000 004D 
-; 0000 004E // Input/Output Ports initialization
-; 0000 004F // Port A initialization
-; 0000 0050 // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
-; 0000 0051 // State7=0 State6=0 State5=P State4=P State3=T State2=T State1=T State0=T
-; 0000 0052 PORTA=0x30;
+; 0000 005A // Declare your local variables here
+; 0000 005B 
+; 0000 005C // Input/Output Ports initialization
+; 0000 005D // Port A initialization
+; 0000 005E // Func7=Out Func6=Out Func5=In Func4=In Func3=In Func2=In Func1=In Func0=In
+; 0000 005F // State7=0 State6=0 State5=P State4=P State3=T State2=T State1=T State0=T
+; 0000 0060 PORTA=0x30;
 ;PCODE: $00000013 VOL: 0
 ;PCODE: $00000014 VOL: 0
-; 0000 0053 DDRA=0xC0;
+; 0000 0061 DDRA=0xC0;
 ;PCODE: $00000015 VOL: 0
 ;PCODE: $00000016 VOL: 0
-; 0000 0054 
-; 0000 0055 // Port B initialization
-; 0000 0056 // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=Out Func1=In Func0=In
-; 0000 0057 // State7=T State6=T State5=T State4=T State3=0 State2=0 State1=T State0=T
-; 0000 0058 PORTB=0x00;
+; 0000 0062 
+; 0000 0063 // Port B initialization
+; 0000 0064 // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0065 // State7=T State6=T State5=T State4=T State3=0 State2=0 State1=T State0=T
+; 0000 0066 PORTB=0x00;
 ;PCODE: $00000017 VOL: 0
 ;PCODE: $00000018 VOL: 0
-; 0000 0059 DDRB=0x0C;
+; 0000 0067 DDRB=0x0C;
 ;PCODE: $00000019 VOL: 0
 ;PCODE: $0000001A VOL: 0
-; 0000 005A 
-; 0000 005B // Port C initialization
-; 0000 005C // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=In Func1=In Func0=In
-; 0000 005D // State7=T State6=T State5=T State4=T State3=1 State2=T State1=T State0=T
-; 0000 005E PORTC=0x08;
+; 0000 0068 
+; 0000 0069 // Port C initialization
+; 0000 006A // Func7=In Func6=In Func5=In Func4=In Func3=Out Func2=In Func1=In Func0=In
+; 0000 006B // State7=T State6=T State5=T State4=T State3=1 State2=T State1=T State0=T
+; 0000 006C PORTC=0x08;
 ;PCODE: $0000001B VOL: 0
 ;PCODE: $0000001C VOL: 0
-; 0000 005F DDRC=0x08;
+; 0000 006D DDRC=0x08;
 ;PCODE: $0000001D VOL: 0
 ;PCODE: $0000001E VOL: 0
-; 0000 0060 
-; 0000 0061 // Port D initialization
-; 0000 0062 // Func7=Out Func6=Out Func5=Out Func4=Out Func3=Out Func2=Out Func1=In Func0=In
-; 0000 0063 // State7=0 State6=0 State5=0 State4=0 State3=0 State2=0 State1=T State0=T
-; 0000 0064 PORTD=0x00;
+; 0000 006E 
+; 0000 006F // Port D initialization
+; 0000 0070 // Func7=Out Func6=Out Func5=Out Func4=Out Func3=Out Func2=Out Func1=In Func0=In
+; 0000 0071 // State7=0 State6=0 State5=0 State4=0 State3=0 State2=0 State1=T State0=T
+; 0000 0072 PORTD=0x00;
 ;PCODE: $0000001F VOL: 0
 ;PCODE: $00000020 VOL: 0
-; 0000 0065 DDRD=0xFC;
+; 0000 0073 DDRD=0xFC;
 ;PCODE: $00000021 VOL: 0
 ;PCODE: $00000022 VOL: 0
-; 0000 0066 
-; 0000 0067 // Timer/Counter 0 initialization
-; 0000 0068 // Clock source: System Clock
-; 0000 0069 // Clock value: 1250.000 kHz
-; 0000 006A // Mode: Fast PWM top=0xFF
-; 0000 006B // OC0 output: Non-Inverted PWM
-; 0000 006C TCCR0=0x6A;
+; 0000 0074 
+; 0000 0075 // Timer/Counter 0 initialization
+; 0000 0076 // Clock source: System Clock
+; 0000 0077 // Clock value: 1250.000 kHz
+; 0000 0078 // Mode: Fast PWM top=0xFF
+; 0000 0079 // OC0 output: Non-Inverted PWM
+; 0000 007A TCCR0=0x6A;
 ;PCODE: $00000023 VOL: 0
 ;PCODE: $00000024 VOL: 0
-; 0000 006D TCNT0=0x00;
+; 0000 007B TCNT0=0x00;
 ;PCODE: $00000025 VOL: 0
 ;PCODE: $00000026 VOL: 0
-; 0000 006E OCR0=0x00;
+; 0000 007C OCR0=0x00;
 ;PCODE: $00000027 VOL: 0
 ;PCODE: $00000028 VOL: 0
-; 0000 006F 
-; 0000 0070 // Timer/Counter 1 initialization
-; 0000 0071 // Clock source: System Clock
-; 0000 0072 // Clock value: 1250.000 kHz
-; 0000 0073 // Mode: Fast PWM top=0x00FF
-; 0000 0074 // OC1A output: Non-Inv.
-; 0000 0075 // OC1B output: Non-Inv.
-; 0000 0076 // Noise Canceler: Off
-; 0000 0077 // Input Capture on Falling Edge
-; 0000 0078 // Timer1 Overflow Interrupt: Off
-; 0000 0079 // Input Capture Interrupt: Off
-; 0000 007A // Compare A Match Interrupt: Off
-; 0000 007B // Compare B Match Interrupt: Off
-; 0000 007C TCCR1A=0xA1;
+; 0000 007D 
+; 0000 007E // Timer/Counter 1 initialization
+; 0000 007F // Clock source: System Clock
+; 0000 0080 // Clock value: 1250.000 kHz
+; 0000 0081 // Mode: Fast PWM top=0x00FF
+; 0000 0082 // OC1A output: Non-Inv.
+; 0000 0083 // OC1B output: Non-Inv.
+; 0000 0084 // Noise Canceler: Off
+; 0000 0085 // Input Capture on Falling Edge
+; 0000 0086 // Timer1 Overflow Interrupt: Off
+; 0000 0087 // Input Capture Interrupt: Off
+; 0000 0088 // Compare A Match Interrupt: Off
+; 0000 0089 // Compare B Match Interrupt: Off
+; 0000 008A TCCR1A=0xA1;
 ;PCODE: $00000029 VOL: 0
 ;PCODE: $0000002A VOL: 0
-; 0000 007D TCCR1B=0x0A;
+; 0000 008B TCCR1B=0x0A;
 ;PCODE: $0000002B VOL: 0
 ;PCODE: $0000002C VOL: 0
-; 0000 007E TCNT1H=0x00;
+; 0000 008C TCNT1H=0x00;
 ;PCODE: $0000002D VOL: 0
 ;PCODE: $0000002E VOL: 0
-; 0000 007F TCNT1L=0x00;
+; 0000 008D TCNT1L=0x00;
 ;PCODE: $0000002F VOL: 0
 ;PCODE: $00000030 VOL: 0
-; 0000 0080 ICR1H=0x00;
+; 0000 008E ICR1H=0x00;
 ;PCODE: $00000031 VOL: 0
 ;PCODE: $00000032 VOL: 0
-; 0000 0081 ICR1L=0x00;
+; 0000 008F ICR1L=0x00;
 ;PCODE: $00000033 VOL: 0
 ;PCODE: $00000034 VOL: 0
-; 0000 0082 OCR1AH=0x00;
+; 0000 0090 OCR1AH=0x00;
 ;PCODE: $00000035 VOL: 0
 ;PCODE: $00000036 VOL: 0
-; 0000 0083 OCR1AL=0x00;
+; 0000 0091 OCR1AL=0x00;
 ;PCODE: $00000037 VOL: 0
 ;PCODE: $00000038 VOL: 0
-; 0000 0084 OCR1BH=0x00;
+; 0000 0092 OCR1BH=0x00;
 ;PCODE: $00000039 VOL: 0
 ;PCODE: $0000003A VOL: 0
-; 0000 0085 OCR1BL=0x00;
+; 0000 0093 OCR1BL=0x00;
 ;PCODE: $0000003B VOL: 0
 ;PCODE: $0000003C VOL: 0
-; 0000 0086 
-; 0000 0087 // Timer/Counter 2 initialization
-; 0000 0088 // Clock source: System Clock
-; 0000 0089 // Clock value: Timer2 Stopped
-; 0000 008A // Mode: Normal top=0xFF
-; 0000 008B // OC2 output: Disconnected
-; 0000 008C ASSR=0x00;
+; 0000 0094 
+; 0000 0095 // Timer/Counter 2 initialization
+; 0000 0096 // Clock source: System Clock
+; 0000 0097 // Clock value: Timer2 Stopped
+; 0000 0098 // Mode: Normal top=0xFF
+; 0000 0099 // OC2 output: Disconnected
+; 0000 009A ASSR=0x00;
 ;PCODE: $0000003D VOL: 0
 ;PCODE: $0000003E VOL: 0
-; 0000 008D TCCR2=0x00;
+; 0000 009B TCCR2=0x00;
 ;PCODE: $0000003F VOL: 0
 ;PCODE: $00000040 VOL: 0
-; 0000 008E TCNT2=0x00;
+; 0000 009C TCNT2=0x00;
 ;PCODE: $00000041 VOL: 0
 ;PCODE: $00000042 VOL: 0
-; 0000 008F OCR2=0x00;
+; 0000 009D OCR2=0x00;
 ;PCODE: $00000043 VOL: 0
 ;PCODE: $00000044 VOL: 0
-; 0000 0090 
-; 0000 0091 // External Interrupt(s) initialization
-; 0000 0092 // INT0: Off
-; 0000 0093 // INT1: Off
-; 0000 0094 // INT2: Off
-; 0000 0095 MCUCR=0x00;
+; 0000 009E 
+; 0000 009F // External Interrupt(s) initialization
+; 0000 00A0 // INT0: Off
+; 0000 00A1 // INT1: Off
+; 0000 00A2 // INT2: Off
+; 0000 00A3 MCUCR=0x00;
 ;PCODE: $00000045 VOL: 0
 ;PCODE: $00000046 VOL: 0
-; 0000 0096 MCUCSR=0x00;
+; 0000 00A4 MCUCSR=0x00;
 ;PCODE: $00000047 VOL: 0
 ;PCODE: $00000048 VOL: 0
-; 0000 0097 
-; 0000 0098 // Timer(s)/Counter(s) Interrupt(s) initialization
-; 0000 0099 TIMSK=0x00;
+; 0000 00A5 
+; 0000 00A6 // Timer(s)/Counter(s) Interrupt(s) initialization
+; 0000 00A7 TIMSK=0x00;
 ;PCODE: $00000049 VOL: 0
 ;PCODE: $0000004A VOL: 0
-; 0000 009A 
-; 0000 009B // USART initialization
-; 0000 009C // USART disabled
-; 0000 009D UCSRB=0x00;
+; 0000 00A8 
+; 0000 00A9 // USART initialization
+; 0000 00AA // USART disabled
+; 0000 00AB UCSRB=0x00;
 ;PCODE: $0000004B VOL: 0
 ;PCODE: $0000004C VOL: 0
-; 0000 009E 
-; 0000 009F // Analog Comparator initialization
-; 0000 00A0 // Analog Comparator: Off
-; 0000 00A1 // Analog Comparator Input Capture by Timer/Counter 1: Off
-; 0000 00A2 ACSR=0x80;
+; 0000 00AC 
+; 0000 00AD // Analog Comparator initialization
+; 0000 00AE // Analog Comparator: Off
+; 0000 00AF // Analog Comparator Input Capture by Timer/Counter 1: Off
+; 0000 00B0 ACSR=0x80;
 ;PCODE: $0000004D VOL: 0
 ;PCODE: $0000004E VOL: 0
-; 0000 00A3 SFIOR=0x00;
+; 0000 00B1 SFIOR=0x00;
 ;PCODE: $0000004F VOL: 0
 ;PCODE: $00000050 VOL: 0
-; 0000 00A4 
-; 0000 00A5 // ADC initialization
-; 0000 00A6 // ADC disabled
-; 0000 00A7 ADCSRA=0x00;
+; 0000 00B2 
+; 0000 00B3 // ADC initialization
+; 0000 00B4 // ADC disabled
+; 0000 00B5 ADCSRA=0x00;
 ;PCODE: $00000051 VOL: 0
 ;PCODE: $00000052 VOL: 0
-; 0000 00A8 
-; 0000 00A9 // SPI initialization
-; 0000 00AA // SPI disabled
-; 0000 00AB SPCR=0x00;
+; 0000 00B6 
+; 0000 00B7 // SPI initialization
+; 0000 00B8 // SPI disabled
+; 0000 00B9 SPCR=0x00;
 ;PCODE: $00000053 VOL: 0
 ;PCODE: $00000054 VOL: 0
-; 0000 00AC 
-; 0000 00AD // TWI initialization
-; 0000 00AE // TWI disabled
-; 0000 00AF TWCR=0x00;
+; 0000 00BA 
+; 0000 00BB // TWI initialization
+; 0000 00BC // TWI disabled
+; 0000 00BD TWCR=0x00;
 ;PCODE: $00000055 VOL: 0
 ;PCODE: $00000056 VOL: 0
-; 0000 00B0 
-; 0000 00B1 // I2C Bus initialization
-; 0000 00B2 i2c_init();
+; 0000 00BE 
+; 0000 00BF // I2C Bus initialization
+; 0000 00C0 i2c_init();
 ;PCODE: $00000057 VOL: 0
-; 0000 00B3 
-; 0000 00B4 // Alphanumeric LCD initialization
-; 0000 00B5 // Connections specified in the
-; 0000 00B6 // Project|Configure|C Compiler|Libraries|Alphanumeric LCD menu:
-; 0000 00B7 // RS - PORTC Bit 0
-; 0000 00B8 // RD - PORTC Bit 1
-; 0000 00B9 // EN - PORTC Bit 2
-; 0000 00BA // D4 - PORTC Bit 4
-; 0000 00BB // D5 - PORTC Bit 5
-; 0000 00BC // D6 - PORTC Bit 6
-; 0000 00BD // D7 - PORTC Bit 7
-; 0000 00BE // Characters/line: 16
-; 0000 00BF //rc = init_robot();
-; 0000 00C0 //if(rc) bug(rc);
-; 0000 00C1 lcd_init(16);
+; 0000 00C1 
+; 0000 00C2 // Alphanumeric LCD initialization
+; 0000 00C3 // Connections specified in the
+; 0000 00C4 // Project|Configure|C Compiler|Libraries|Alphanumeric LCD menu:
+; 0000 00C5 // RS - PORTC Bit 0
+; 0000 00C6 // RD - PORTC Bit 1
+; 0000 00C7 // EN - PORTC Bit 2
+; 0000 00C8 // D4 - PORTC Bit 4
+; 0000 00C9 // D5 - PORTC Bit 5
+; 0000 00CA // D6 - PORTC Bit 6
+; 0000 00CB // D7 - PORTC Bit 7
+; 0000 00CC // Characters/line: 16
+; 0000 00CD rc = init_robot();
 ;PCODE: $00000058 VOL: 0
 ;PCODE: $00000059 VOL: 0
+; 0000 00CE if(rc) bug(rc);
 ;PCODE: $0000005A VOL: 0
-; 0000 00C2 for(i=0;i<18;i++) sensors[i] = 1;
 ;PCODE: $0000005B VOL: 0
 ;PCODE: $0000005C VOL: 0
 ;PCODE: $0000005D VOL: 0
+; 0000 00CF lcd_init(16);
 ;PCODE: $0000005E VOL: 0
 ;PCODE: $0000005F VOL: 0
 ;PCODE: $00000060 VOL: 0
 ;PCODE: $00000061 VOL: 0
+; 0000 00D0 for(i=0;i<18;i++) sensors[i] = 1;
 ;PCODE: $00000062 VOL: 0
 ;PCODE: $00000063 VOL: 0
 ;PCODE: $00000064 VOL: 0
@@ -319,33 +333,21 @@
 ;PCODE: $0000006D VOL: 0
 ;PCODE: $0000006E VOL: 0
 ;PCODE: $0000006F VOL: 0
-; 0000 00C3 while (1)
 ;PCODE: $00000070 VOL: 0
-; 0000 00C4       {
-; 0000 00C5       }
 ;PCODE: $00000071 VOL: 0
 ;PCODE: $00000072 VOL: 0
-; 0000 00C6 }
 ;PCODE: $00000073 VOL: 0
 ;PCODE: $00000074 VOL: 0
 ;PCODE: $00000075 VOL: 0
-;void write_int(int x, int y, int value) {
-; 0000 00C7 void write_int(int x, int y, int value) {
 ;PCODE: $00000076 VOL: 0
+; 0000 00D1 for(i=0;i<18;i++) workingSensors[i] = 1;
 ;PCODE: $00000077 VOL: 0
-; 0000 00C8     char s[4];
-; 0000 00C9     lcd_gotoxy(x,y);
 ;PCODE: $00000078 VOL: 0
-;	x -> Y+8
-;	y -> Y+6
-;	value -> Y+4
-;	s -> Y+0
 ;PCODE: $00000079 VOL: 0
 ;PCODE: $0000007A VOL: 0
 ;PCODE: $0000007B VOL: 0
 ;PCODE: $0000007C VOL: 0
 ;PCODE: $0000007D VOL: 0
-; 0000 00CA     sprintf(s, "%d", value);
 ;PCODE: $0000007E VOL: 0
 ;PCODE: $0000007F VOL: 0
 ;PCODE: $00000080 VOL: 0
@@ -358,35 +360,81 @@
 ;PCODE: $00000087 VOL: 0
 ;PCODE: $00000088 VOL: 0
 ;PCODE: $00000089 VOL: 0
-; 0000 00CB     lcd_puts(s);
 ;PCODE: $0000008A VOL: 0
 ;PCODE: $0000008B VOL: 0
+; 0000 00D2 while (1)
 ;PCODE: $0000008C VOL: 0
-; 0000 00CC }
+; 0000 00D3       {
+; 0000 00D4         //set_muxs(15);
+; 0000 00D5         //delay_us(1);
+; 0000 00D6         //if(MUXOB == 0) compass_calib();
+; 0000 00D7         //init_compass();
+; 0000 00D8         checksensors();
 ;PCODE: $0000008D VOL: 0
+; 0000 00D9 //        move = getMovement();
+; 0000 00DA //        if(move == 0) goforIt(-255,0,255); else
+; 0000 00DB //        if(move == 0.5) goforIt(-208,-46,255); else
+; 0000 00DC //        if(move == 1) goforIt(-165,-88,255); else
+; 0000 00DD //        if(move == 1.5) goforIt(-127,-127,255); else
+; 0000 00DE //        if(move == 2) goforIt(-88,-165,255); else
+; 0000 00DF //        if(move == 2.5) goforIt(-46,-208,255); else
+; 0000 00E0 //        if(move == 3) goforIt(0,-255,255); else
+; 0000 00E1 //        if(move == 3.5) goforIt(46,-255,208); else
+; 0000 00E2 //        if(move == 4) goforIt(88,-255,165); else
+; 0000 00E3 //        if(move == 4.5) goforIt(127,-255,127); else
+; 0000 00E4 //        if(move == 5) goforIt(165,-255,88); else
+; 0000 00E5 //        if(move == 5.5) goforIt(208,-255,46); else
+; 0000 00E6 //        if(move == 6) goforIt(255,-255,0); else
+; 0000 00E7 //        if(move == 6.5) goforIt(255,-208,-46); else
+; 0000 00E8 //        if(move == 7) goforIt(255,-165,-88); else
+; 0000 00E9 //        if(move == 7.5) goforIt(255,-127,-127); else
+; 0000 00EA //        if(move == 8) goforIt(255,-88,-165); else
+; 0000 00EB //        if(move == 8.5) goforIt(255,-46,-208); else
+; 0000 00EC //        if(move == 9) goforIt(255,0,-255); else
+; 0000 00ED //        if(move == 9.5) goforIt(208,46,-255); else
+; 0000 00EE //        if(move == 10) goforIt(165,88,-255); else
+; 0000 00EF //        if(move == 10.5) goforIt(127,127,-255); else
+; 0000 00F0 //        if(move == 11) goforIt(88,165,-255); else
+; 0000 00F1 //        if(move == 11.5) goforIt(46,208,-255); else
+; 0000 00F2 //        if(move == 12) goforIt(0,255,-255); else
+; 0000 00F3 //        if(move == 12.5) goforIt(-46,255,-208); else
+; 0000 00F4 //        if(move == 13) goforIt(-88,255,-165); else
+; 0000 00F5 //        if(move == 13.5) goforIt(-127,255,-127); else
+; 0000 00F6 //        if(move == 14) goforIt(-165,255,-88); else
+; 0000 00F7 //        if(move == 14.5) goforIt(-208,255,-46); else
+; 0000 00F8 //        if(move == 15) goforIt(-255,255,0); else
+; 0000 00F9 //        if(move == 15.5) goforIt(-255,208,46); else
+; 0000 00FA //        if(move == 16) goforIt(-255,165,88); else
+; 0000 00FB //        if(move == 16.5) goforIt(-255,127,127); else
+; 0000 00FC //        if(move == 17) goforIt(-255,88,165); else
+; 0000 00FD //        if(move == 17.5) goforIt(-255,46,208);
+; 0000 00FE //        motor(-motorSpeed1,-motorSpeed2,-motorSpeed3);
+; 0000 00FF       }
 ;PCODE: $0000008E VOL: 0
 ;PCODE: $0000008F VOL: 0
-;void lcd_writeint(int x, int y, int value) {
-; 0000 00CD void lcd_writeint(int x, int y, int value) {
+; 0000 0100 }
 ;PCODE: $00000090 VOL: 0
 ;PCODE: $00000091 VOL: 0
-; 0000 00CE     lcd_gotoxy(x,y);
-;	x -> Y+4
-;	y -> Y+2
-;	value -> Y+0
 ;PCODE: $00000092 VOL: 0
+;void write_int(int x, int y, int value) {
+; 0000 0101 void write_int(int x, int y, int value) {
 ;PCODE: $00000093 VOL: 0
 ;PCODE: $00000094 VOL: 0
+; 0000 0102     char s[4];
+; 0000 0103     lcd_gotoxy(x,y);
 ;PCODE: $00000095 VOL: 0
+;	x -> Y+8
+;	y -> Y+6
+;	value -> Y+4
+;	s -> Y+0
 ;PCODE: $00000096 VOL: 0
-; 0000 00CF     lcd_putchar('0' + value/1000);
 ;PCODE: $00000097 VOL: 0
 ;PCODE: $00000098 VOL: 0
 ;PCODE: $00000099 VOL: 0
 ;PCODE: $0000009A VOL: 0
+; 0000 0104     sprintf(s, "%d", value);
 ;PCODE: $0000009B VOL: 0
 ;PCODE: $0000009C VOL: 0
-; 0000 00D0     lcd_putchar('0' + (value/100)%10);
 ;PCODE: $0000009D VOL: 0
 ;PCODE: $0000009E VOL: 0
 ;PCODE: $0000009F VOL: 0
@@ -396,143 +444,253 @@
 ;PCODE: $000000A3 VOL: 0
 ;PCODE: $000000A4 VOL: 0
 ;PCODE: $000000A5 VOL: 0
-; 0000 00D1     lcd_putchar('0' + (value/10)%10);
 ;PCODE: $000000A6 VOL: 0
+; 0000 0105     lcd_puts(s);
 ;PCODE: $000000A7 VOL: 0
 ;PCODE: $000000A8 VOL: 0
 ;PCODE: $000000A9 VOL: 0
+; 0000 0106 }
 ;PCODE: $000000AA VOL: 0
 ;PCODE: $000000AB VOL: 0
 ;PCODE: $000000AC VOL: 0
+;int init_robot() {
+; 0000 0107 int init_robot() {
 ;PCODE: $000000AD VOL: 0
 ;PCODE: $000000AE VOL: 0
-; 0000 00D2     lcd_putchar('0' + value%10);
+; 0000 0108     init_switches();
 ;PCODE: $000000AF VOL: 0
+; 0000 0109     if(lcd_enabled) lcd_init(16);
 ;PCODE: $000000B0 VOL: 0
 ;PCODE: $000000B1 VOL: 0
 ;PCODE: $000000B2 VOL: 0
 ;PCODE: $000000B3 VOL: 0
 ;PCODE: $000000B4 VOL: 0
-; 0000 00D3 }
+; 0000 010A     rc = init_sensors();
 ;PCODE: $000000B5 VOL: 0
 ;PCODE: $000000B6 VOL: 0
 ;PCODE: $000000B7 VOL: 0
-;int init_robot() {
-; 0000 00D4 int init_robot() {
+; 0000 010B     if(rc) return rc;
 ;PCODE: $000000B8 VOL: 0
 ;PCODE: $000000B9 VOL: 0
-; 0000 00D5     init_switches();
 ;PCODE: $000000BA VOL: 0
-; 0000 00D6     if(lcd_enabled) lcd_init(16);
 ;PCODE: $000000BB VOL: 0
+; 0000 010C     return 0;
 ;PCODE: $000000BC VOL: 0
 ;PCODE: $000000BD VOL: 0
 ;PCODE: $000000BE VOL: 0
+; 0000 010D }
 ;PCODE: $000000BF VOL: 0
-; 0000 00D7     rc = init_sensors();
+;void set_muxs(int pin) {
+; 0000 010E void set_muxs(int pin) {
 ;PCODE: $000000C0 VOL: 0
 ;PCODE: $000000C1 VOL: 0
-;PCODE: $000000C2 VOL: 0
-; 0000 00D8     if(rc) return rc;
-;PCODE: $000000C3 VOL: 0
-;PCODE: $000000C4 VOL: 0
-;PCODE: $000000C5 VOL: 0
-;PCODE: $000000C6 VOL: 0
-; 0000 00D9     return 0;
-;PCODE: $000000C7 VOL: 0
-;PCODE: $000000C8 VOL: 0
-;PCODE: $000000C9 VOL: 0
-; 0000 00DA }
-;PCODE: $000000CA VOL: 0
-;void set_mux(int pin) {
-; 0000 00DB void set_mux(int pin) {
-;PCODE: $000000CB VOL: 0
-;PCODE: $000000CC VOL: 0
-; 0000 00DC     MUXD = (pin/8);
+; 0000 010F     #asm
 ;	pin -> Y+0
+;PCODE: $000000C2 VOL: 0
+; 0000 0110     LD R30,y
+    LD R30,y
+;PCODE: $000000C3 VOL: 0
+; 0000 0111     LD R31,Y
+    LD R31,Y
+;PCODE: $000000C4 VOL: 0
+; 0000 0112     ROR R30
+    ROR R30
+;PCODE: $000000C5 VOL: 0
+; 0000 0113     ROR R30
+    ROR R30
+;PCODE: $000000C6 VOL: 0
+; 0000 0114     ROR R30
+    ROR R30
+;PCODE: $000000C7 VOL: 0
+; 0000 0115     EOR R30,R31
+    EOR R30,R31
+;PCODE: $000000C8 VOL: 0
+; 0000 0116     ROR R30
+    ROR R30
+;PCODE: $000000C9 VOL: 0
+; 0000 0117     BRCS first
+    BRCS first
+;PCODE: $000000CA VOL: 0
+; 0000 0118     ; 0000 006D PORTA.6=0;
+    ; 0000 006D PORTA.6=0;
+;PCODE: $000000CB VOL: 0
+; 0000 0119         CBI  0x1B,6
+        CBI  0x1B,6
+;PCODE: $000000CC VOL: 0
+; 0000 011A         JMP next
+        JMP next
 ;PCODE: $000000CD VOL: 0
+; 0000 011B     first:
+    first:
 ;PCODE: $000000CE VOL: 0
+; 0000 011C     ; 0000 006D PORTA.6=1;
+    ; 0000 006D PORTA.6=1;
 ;PCODE: $000000CF VOL: 0
+; 0000 011D         SBI  0x1B,6
+        SBI  0x1B,6
 ;PCODE: $000000D0 VOL: 0
+; 0000 011E     next:
+    next:
 ;PCODE: $000000D1 VOL: 0
+; 0000 011F     MOV R30,R31
+    MOV R30,R31
 ;PCODE: $000000D2 VOL: 0
+; 0000 0120     ROR R30
+    ROR R30
 ;PCODE: $000000D3 VOL: 0
+; 0000 0121     ROR R30
+    ROR R30
 ;PCODE: $000000D4 VOL: 0
+; 0000 0122     EOR R30,R31
+    EOR R30,R31
 ;PCODE: $000000D5 VOL: 0
+; 0000 0123     ROR R30
+    ROR R30
 ;PCODE: $000000D6 VOL: 0
+; 0000 0124     ROR R30
+    ROR R30
 ;PCODE: $000000D7 VOL: 0
+; 0000 0125     BRCS second
+    BRCS second
 ;PCODE: $000000D8 VOL: 0
-; 0000 00DD     MUXC = (pin>>3) & 1;
+; 0000 0126     ; 0000 006D PORTA.7=0;
+    ; 0000 006D PORTA.7=0;
 ;PCODE: $000000D9 VOL: 0
+; 0000 0127         CBI  0x1B,7
+        CBI  0x1B,7
 ;PCODE: $000000DA VOL: 0
+; 0000 0128         JMP nextt
+        JMP nextt
 ;PCODE: $000000DB VOL: 0
+; 0000 0129     second:
+    second:
 ;PCODE: $000000DC VOL: 0
+; 0000 012A     ; 0000 006D PORTA.7=1;
+    ; 0000 006D PORTA.7=1;
 ;PCODE: $000000DD VOL: 0
+; 0000 012B         SBI  0x1B,7
+        SBI  0x1B,7
 ;PCODE: $000000DE VOL: 0
+; 0000 012C     nextt:
+    nextt:
 ;PCODE: $000000DF VOL: 0
+; 0000 012D     MOV R30,R31
+    MOV R30,R31
 ;PCODE: $000000E0 VOL: 0
+; 0000 012E     ROR R30
+    ROR R30
 ;PCODE: $000000E1 VOL: 0
+; 0000 012F     EOR R30,R31
+    EOR R30,R31
 ;PCODE: $000000E2 VOL: 0
+; 0000 0130     ROR R30
+    ROR R30
 ;PCODE: $000000E3 VOL: 0
-; 0000 00DE     MUXB = (pin>>2) & 1;
+; 0000 0131     ROR R30
+    ROR R30
 ;PCODE: $000000E4 VOL: 0
+; 0000 0132     ROR R30
+    ROR R30
 ;PCODE: $000000E5 VOL: 0
+; 0000 0133     BRCS third
+    BRCS third
 ;PCODE: $000000E6 VOL: 0
+; 0000 0134     ; 0000 006D PORTD.6=0;
+    ; 0000 006D PORTD.6=0;
 ;PCODE: $000000E7 VOL: 0
+; 0000 0135         CBI  0x12,6
+        CBI  0x12,6
 ;PCODE: $000000E8 VOL: 0
+; 0000 0136         JMP nexttt
+        JMP nexttt
 ;PCODE: $000000E9 VOL: 0
+; 0000 0137     third:
+    third:
 ;PCODE: $000000EA VOL: 0
+; 0000 0138     ; 0000 006D PORTD.6=1;
+    ; 0000 006D PORTD.6=1;
 ;PCODE: $000000EB VOL: 0
+; 0000 0139         SBI  0x12,6
+        SBI  0x12,6
 ;PCODE: $000000EC VOL: 0
+; 0000 013A     nexttt:
+    nexttt:
 ;PCODE: $000000ED VOL: 0
+; 0000 013B     MOV R30,R31
+    MOV R30,R31
 ;PCODE: $000000EE VOL: 0
-; 0000 00DF     MUXA = (pin>>1) & 1;
+; 0000 013C     ROR R30
+    ROR R30
 ;PCODE: $000000EF VOL: 0
+; 0000 013D     ROR R30
+    ROR R30
 ;PCODE: $000000F0 VOL: 0
+; 0000 013E     ROR R30
+    ROR R30
 ;PCODE: $000000F1 VOL: 0
+; 0000 013F     ROR R30
+    ROR R30
 ;PCODE: $000000F2 VOL: 0
+; 0000 0140     BRCS fourth
+    BRCS fourth
 ;PCODE: $000000F3 VOL: 0
+; 0000 0141     ; 0000 006D PORTD.7=0;
+    ; 0000 006D PORTD.7=0;
 ;PCODE: $000000F4 VOL: 0
+; 0000 0142         CBI  0x12,7
+        CBI  0x12,7
 ;PCODE: $000000F5 VOL: 0
+; 0000 0143         JMP endzz
+        JMP endzz
 ;PCODE: $000000F6 VOL: 0
+; 0000 0144     fourth:
+    fourth:
 ;PCODE: $000000F7 VOL: 0
+; 0000 0145     ; 0000 006D PORTD.7=1;
+    ; 0000 006D PORTD.7=1;
 ;PCODE: $000000F8 VOL: 0
+; 0000 0146         SBI  0x12,7
+        SBI  0x12,7
 ;PCODE: $000000F9 VOL: 0
-; 0000 00E0 }
+; 0000 0147     endzz:
+    endzz:
 ;PCODE: $000000FA VOL: 0
 ;PCODE: $000000FB VOL: 0
+; 0000 0148     #endasm
+; 0000 0149 
+; 0000 014A }
 ;PCODE: $000000FC VOL: 0
-;void init_switches(){
-; 0000 00E1 void init_switches(){
 ;PCODE: $000000FD VOL: 0
 ;PCODE: $000000FE VOL: 0
-; 0000 00E2     set_mux(LCD);
+;void init_switches(){
+; 0000 014B void init_switches(){
 ;PCODE: $000000FF VOL: 0
 ;PCODE: $00000100 VOL: 0
+; 0000 014C     set_muxs(LCD);
 ;PCODE: $00000101 VOL: 0
-; 0000 00E3     lcd_enabled = MUXOB;
 ;PCODE: $00000102 VOL: 0
 ;PCODE: $00000103 VOL: 0
+; 0000 014D     lcd_enabled = MUXOB;
 ;PCODE: $00000104 VOL: 0
 ;PCODE: $00000105 VOL: 0
-; 0000 00E4     //set_mux(STRICT);
-; 0000 00E5     //strict_set = MUXOB;
-; 0000 00E6 }
 ;PCODE: $00000106 VOL: 0
 ;PCODE: $00000107 VOL: 0
-;int init_sensors() {
-; 0000 00E7 int init_sensors() {
+; 0000 014E     //set_mux(STRICT);
+; 0000 014F     //strict_set = MUXOB;
+; 0000 0150 }
 ;PCODE: $00000108 VOL: 0
 ;PCODE: $00000109 VOL: 0
-; 0000 00E8     char sensorHolder;
-; 0000 00E9     char swtch;
-; 0000 00EA     for(i=0;i<18;i++) {
+;int init_sensors() {
+; 0000 0151 int init_sensors() {
 ;PCODE: $0000010A VOL: 0
 ;PCODE: $0000010B VOL: 0
-;	sensorHolder -> R17
-;	swtch -> R16
+; 0000 0152     char sensorHolder;
+; 0000 0153     char swtch;
+; 0000 0154     for(i=0;i<18;i++) {
 ;PCODE: $0000010C VOL: 0
 ;PCODE: $0000010D VOL: 0
+;	sensorHolder -> R17
+;	swtch -> R16
 ;PCODE: $0000010E VOL: 0
 ;PCODE: $0000010F VOL: 0
 ;PCODE: $00000110 VOL: 0
@@ -540,12 +698,12 @@
 ;PCODE: $00000112 VOL: 0
 ;PCODE: $00000113 VOL: 0
 ;PCODE: $00000114 VOL: 0
-; 0000 00EB         sensorHolder = i;
 ;PCODE: $00000115 VOL: 0
 ;PCODE: $00000116 VOL: 0
-; 0000 00EC         if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
+; 0000 0155         sensorHolder = i;
 ;PCODE: $00000117 VOL: 0
 ;PCODE: $00000118 VOL: 0
+; 0000 0156         if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
 ;PCODE: $00000119 VOL: 0
 ;PCODE: $0000011A VOL: 0
 ;PCODE: $0000011B VOL: 0
@@ -558,14 +716,14 @@
 ;PCODE: $00000122 VOL: 0
 ;PCODE: $00000123 VOL: 0
 ;PCODE: $00000124 VOL: 0
-; 0000 00ED         set_mux(sensorHolder);
 ;PCODE: $00000125 VOL: 0
 ;PCODE: $00000126 VOL: 0
+; 0000 0157         set_muxs(sensorHolder);
 ;PCODE: $00000127 VOL: 0
 ;PCODE: $00000128 VOL: 0
-; 0000 00EE         if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
 ;PCODE: $00000129 VOL: 0
 ;PCODE: $0000012A VOL: 0
+; 0000 0158         if((swtch ? MUXOB : MUXOA) == 0) workingSensors[i] = 1;
 ;PCODE: $0000012B VOL: 0
 ;PCODE: $0000012C VOL: 0
 ;PCODE: $0000012D VOL: 0
@@ -582,77 +740,77 @@
 ;PCODE: $00000138 VOL: 0
 ;PCODE: $00000139 VOL: 0
 ;PCODE: $0000013A VOL: 0
-; 0000 00EF     }
 ;PCODE: $0000013B VOL: 0
 ;PCODE: $0000013C VOL: 0
+; 0000 0159     }
 ;PCODE: $0000013D VOL: 0
 ;PCODE: $0000013E VOL: 0
 ;PCODE: $0000013F VOL: 0
 ;PCODE: $00000140 VOL: 0
 ;PCODE: $00000141 VOL: 0
-; 0000 00F0     return 0;
 ;PCODE: $00000142 VOL: 0
 ;PCODE: $00000143 VOL: 0
+; 0000 015A     return 0;
 ;PCODE: $00000144 VOL: 0
-; 0000 00F1 }
 ;PCODE: $00000145 VOL: 0
-;void bug(int error) {
-; 0000 00F2 void bug(int error) {
 ;PCODE: $00000146 VOL: 0
+; 0000 015B }
 ;PCODE: $00000147 VOL: 0
-; 0000 00F3     if(lcd_enabled) {
-;	error -> Y+0
+;void bug(int error) {
+; 0000 015C void bug(int error) {
 ;PCODE: $00000148 VOL: 0
 ;PCODE: $00000149 VOL: 0
-; 0000 00F4         lcd_puts("BUG on: ");
+; 0000 015D     if(lcd_enabled) {
+;	error -> Y+0
 ;PCODE: $0000014A VOL: 0
 ;PCODE: $0000014B VOL: 0
+; 0000 015E         lcd_puts("BUG on: ");
 ;PCODE: $0000014C VOL: 0
 ;PCODE: $0000014D VOL: 0
-; 0000 00F5         lcd_putchar('0' + error);
 ;PCODE: $0000014E VOL: 0
 ;PCODE: $0000014F VOL: 0
+; 0000 015F         lcd_putchar('0' + error);
 ;PCODE: $00000150 VOL: 0
 ;PCODE: $00000151 VOL: 0
-; 0000 00F6     } else {
 ;PCODE: $00000152 VOL: 0
 ;PCODE: $00000153 VOL: 0
-; 0000 00F7         while(1);}
+; 0000 0160     } else {
 ;PCODE: $00000154 VOL: 0
 ;PCODE: $00000155 VOL: 0
+; 0000 0161         while(1);}
 ;PCODE: $00000156 VOL: 0
 ;PCODE: $00000157 VOL: 0
-; 0000 00F8 }
 ;PCODE: $00000158 VOL: 0
 ;PCODE: $00000159 VOL: 0
+; 0000 0162 }
 ;PCODE: $0000015A VOL: 0
-
-	.DSEG
-_0x20:
-	.BYTE 0x9
-;void checksensors() {
-; 0000 00F9 void checksensors() {
-
-	.CSEG
 ;PCODE: $0000015B VOL: 0
 ;PCODE: $0000015C VOL: 0
-; 0000 00FA     char sensorHolder;
-; 0000 00FB     char swtch;
-; 0000 00FC     for(i=0;i<18;i++) {
+
+	.DSEG
+_0x1C:
+	.BYTE 0x9
+;void checksensors() {
+; 0000 0163 void checksensors() {
+
+	.CSEG
 ;PCODE: $0000015D VOL: 0
 ;PCODE: $0000015E VOL: 0
-;	sensorHolder -> R17
-;	swtch -> R16
+; 0000 0164     char sensorHolder;
+; 0000 0165     char swtch;
+; 0000 0166     lcd_gotoxy(0,0);
 ;PCODE: $0000015F VOL: 0
 ;PCODE: $00000160 VOL: 0
+;	sensorHolder -> R17
+;	swtch -> R16
 ;PCODE: $00000161 VOL: 0
 ;PCODE: $00000162 VOL: 0
 ;PCODE: $00000163 VOL: 0
 ;PCODE: $00000164 VOL: 0
 ;PCODE: $00000165 VOL: 0
+; 0000 0167     for(i=0;i<18;i++) {
 ;PCODE: $00000166 VOL: 0
 ;PCODE: $00000167 VOL: 0
-; 0000 00FD         if(workingSensors[i] == 0) sensors[i] = 1; else {
 ;PCODE: $00000168 VOL: 0
 ;PCODE: $00000169 VOL: 0
 ;PCODE: $0000016A VOL: 0
@@ -660,6 +818,7 @@ _0x20:
 ;PCODE: $0000016C VOL: 0
 ;PCODE: $0000016D VOL: 0
 ;PCODE: $0000016E VOL: 0
+; 0000 0168         if(workingSensors[i] == 0) sensors[i] = 1; else {
 ;PCODE: $0000016F VOL: 0
 ;PCODE: $00000170 VOL: 0
 ;PCODE: $00000171 VOL: 0
@@ -668,17 +827,17 @@ _0x20:
 ;PCODE: $00000174 VOL: 0
 ;PCODE: $00000175 VOL: 0
 ;PCODE: $00000176 VOL: 0
-; 0000 00FE             sensorHolder = i;
 ;PCODE: $00000177 VOL: 0
 ;PCODE: $00000178 VOL: 0
-; 0000 00FF             if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
 ;PCODE: $00000179 VOL: 0
 ;PCODE: $0000017A VOL: 0
 ;PCODE: $0000017B VOL: 0
 ;PCODE: $0000017C VOL: 0
 ;PCODE: $0000017D VOL: 0
+; 0000 0169             sensorHolder = i;
 ;PCODE: $0000017E VOL: 0
 ;PCODE: $0000017F VOL: 0
+; 0000 016A             if(i>15) {swtch = 1; sensorHolder = sensorHolder-16;} else {swtch = 0;}
 ;PCODE: $00000180 VOL: 0
 ;PCODE: $00000181 VOL: 0
 ;PCODE: $00000182 VOL: 0
@@ -686,19 +845,19 @@ _0x20:
 ;PCODE: $00000184 VOL: 0
 ;PCODE: $00000185 VOL: 0
 ;PCODE: $00000186 VOL: 0
-; 0000 0100             set_mux(sensorHolder);
 ;PCODE: $00000187 VOL: 0
 ;PCODE: $00000188 VOL: 0
 ;PCODE: $00000189 VOL: 0
 ;PCODE: $0000018A VOL: 0
-; 0000 0101             sensors[i] = (swtch ? MUXOB : MUXOA);
 ;PCODE: $0000018B VOL: 0
 ;PCODE: $0000018C VOL: 0
 ;PCODE: $0000018D VOL: 0
+; 0000 016B             set_muxs(sensorHolder);
 ;PCODE: $0000018E VOL: 0
 ;PCODE: $0000018F VOL: 0
 ;PCODE: $00000190 VOL: 0
 ;PCODE: $00000191 VOL: 0
+; 0000 016C             sensors[i] = (swtch ? MUXOB : MUXOA);
 ;PCODE: $00000192 VOL: 0
 ;PCODE: $00000193 VOL: 0
 ;PCODE: $00000194 VOL: 0
@@ -711,47 +870,43 @@ _0x20:
 ;PCODE: $0000019B VOL: 0
 ;PCODE: $0000019C VOL: 0
 ;PCODE: $0000019D VOL: 0
-; 0000 0102         }
 ;PCODE: $0000019E VOL: 0
-; 0000 0103     }
 ;PCODE: $0000019F VOL: 0
 ;PCODE: $000001A0 VOL: 0
 ;PCODE: $000001A1 VOL: 0
 ;PCODE: $000001A2 VOL: 0
 ;PCODE: $000001A3 VOL: 0
 ;PCODE: $000001A4 VOL: 0
-; 0000 0104 
-; 0000 0105 }
+; 0000 016D             lcd_putchar('0' + sensors[i]);
 ;PCODE: $000001A5 VOL: 0
 ;PCODE: $000001A6 VOL: 0
 ;PCODE: $000001A7 VOL: 0
-;float getMovement() {
-; 0000 0106 float getMovement() {
 ;PCODE: $000001A8 VOL: 0
 ;PCODE: $000001A9 VOL: 0
-; 0000 0107     unsigned char left = 0, right = 0, sum = 0, n = 0;
-; 0000 0108     float ret = 0;
-; 0000 0109     for(i=0;i<18;i++) {
 ;PCODE: $000001AA VOL: 0
 ;PCODE: $000001AB VOL: 0
 ;PCODE: $000001AC VOL: 0
+; 0000 016E         }
 ;PCODE: $000001AD VOL: 0
+; 0000 016F     }
 ;PCODE: $000001AE VOL: 0
 ;PCODE: $000001AF VOL: 0
 ;PCODE: $000001B0 VOL: 0
 ;PCODE: $000001B1 VOL: 0
 ;PCODE: $000001B2 VOL: 0
 ;PCODE: $000001B3 VOL: 0
-;	left -> R17
-;	right -> R16
-;	sum -> R19
-;	n -> R18
-;	ret -> Y+4
+; 0000 0170 
+; 0000 0171 }
 ;PCODE: $000001B4 VOL: 0
 ;PCODE: $000001B5 VOL: 0
 ;PCODE: $000001B6 VOL: 0
+;float getMovement() {
+; 0000 0172 float getMovement() {
 ;PCODE: $000001B7 VOL: 0
 ;PCODE: $000001B8 VOL: 0
+; 0000 0173     unsigned char left = 0, right = 0, sum = 0, n = 0;
+; 0000 0174     float ret = 0.0;
+; 0000 0175     for(i=0;i<18;i++) {
 ;PCODE: $000001B9 VOL: 0
 ;PCODE: $000001BA VOL: 0
 ;PCODE: $000001BB VOL: 0
@@ -762,9 +917,13 @@ _0x20:
 ;PCODE: $000001C0 VOL: 0
 ;PCODE: $000001C1 VOL: 0
 ;PCODE: $000001C2 VOL: 0
+;	left -> R17
+;	right -> R16
+;	sum -> R19
+;	n -> R18
+;	ret -> Y+4
 ;PCODE: $000001C3 VOL: 0
 ;PCODE: $000001C4 VOL: 0
-; 0000 010A         if(sensors[i] == 0) {
 ;PCODE: $000001C5 VOL: 0
 ;PCODE: $000001C6 VOL: 0
 ;PCODE: $000001C7 VOL: 0
@@ -772,52 +931,52 @@ _0x20:
 ;PCODE: $000001C9 VOL: 0
 ;PCODE: $000001CA VOL: 0
 ;PCODE: $000001CB VOL: 0
-; 0000 010B             sum+= i;
 ;PCODE: $000001CC VOL: 0
 ;PCODE: $000001CD VOL: 0
-; 0000 010C             n++;
 ;PCODE: $000001CE VOL: 0
 ;PCODE: $000001CF VOL: 0
-; 0000 010D             if(i<5) left++;
 ;PCODE: $000001D0 VOL: 0
 ;PCODE: $000001D1 VOL: 0
 ;PCODE: $000001D2 VOL: 0
 ;PCODE: $000001D3 VOL: 0
+; 0000 0176         if(sensors[i] == 0) {
 ;PCODE: $000001D4 VOL: 0
-; 0000 010E             if(i>13) right++;
 ;PCODE: $000001D5 VOL: 0
 ;PCODE: $000001D6 VOL: 0
 ;PCODE: $000001D7 VOL: 0
 ;PCODE: $000001D8 VOL: 0
 ;PCODE: $000001D9 VOL: 0
 ;PCODE: $000001DA VOL: 0
-; 0000 010F         }
+; 0000 0177             sum+= i;
 ;PCODE: $000001DB VOL: 0
-; 0000 0110     }
 ;PCODE: $000001DC VOL: 0
+; 0000 0178             n++;
 ;PCODE: $000001DD VOL: 0
 ;PCODE: $000001DE VOL: 0
+; 0000 0179             if(i<5) left++;
 ;PCODE: $000001DF VOL: 0
 ;PCODE: $000001E0 VOL: 0
 ;PCODE: $000001E1 VOL: 0
 ;PCODE: $000001E2 VOL: 0
-; 0000 0111     if(left>0 && right >0) sum += (left * 18);
 ;PCODE: $000001E3 VOL: 0
+; 0000 017A             if(i>13) right++;
 ;PCODE: $000001E4 VOL: 0
 ;PCODE: $000001E5 VOL: 0
 ;PCODE: $000001E6 VOL: 0
 ;PCODE: $000001E7 VOL: 0
 ;PCODE: $000001E8 VOL: 0
 ;PCODE: $000001E9 VOL: 0
+; 0000 017B         }
 ;PCODE: $000001EA VOL: 0
+; 0000 017C     }
 ;PCODE: $000001EB VOL: 0
 ;PCODE: $000001EC VOL: 0
 ;PCODE: $000001ED VOL: 0
 ;PCODE: $000001EE VOL: 0
 ;PCODE: $000001EF VOL: 0
 ;PCODE: $000001F0 VOL: 0
-; 0000 0112     ret = (float) sum/n;
 ;PCODE: $000001F1 VOL: 0
+; 0000 017D     if(left>0 && right >0) sum += (left * 18);
 ;PCODE: $000001F2 VOL: 0
 ;PCODE: $000001F3 VOL: 0
 ;PCODE: $000001F4 VOL: 0
@@ -826,20 +985,648 @@ _0x20:
 ;PCODE: $000001F7 VOL: 0
 ;PCODE: $000001F8 VOL: 0
 ;PCODE: $000001F9 VOL: 0
-; 0000 0113     if(ret>18) ret -= 18;
 ;PCODE: $000001FA VOL: 0
 ;PCODE: $000001FB VOL: 0
 ;PCODE: $000001FC VOL: 0
 ;PCODE: $000001FD VOL: 0
 ;PCODE: $000001FE VOL: 0
 ;PCODE: $000001FF VOL: 0
+; 0000 017E     if (n)
 ;PCODE: $00000200 VOL: 0
 ;PCODE: $00000201 VOL: 0
-; 0000 0114     return ret;
 ;PCODE: $00000202 VOL: 0
+; 0000 017F         ret = (float) sum/n;
 ;PCODE: $00000203 VOL: 0
 ;PCODE: $00000204 VOL: 0
 ;PCODE: $00000205 VOL: 0
 ;PCODE: $00000206 VOL: 0
-; 0000 0115 }
 ;PCODE: $00000207 VOL: 0
+;PCODE: $00000208 VOL: 0
+;PCODE: $00000209 VOL: 0
+;PCODE: $0000020A VOL: 0
+; 0000 0180     else ret = 100.0;
+;PCODE: $0000020B VOL: 0
+;PCODE: $0000020C VOL: 0
+;PCODE: $0000020D VOL: 0
+;PCODE: $0000020E VOL: 0
+; 0000 0181 
+; 0000 0182     if(ret>=18) ret -= 18.0;
+;PCODE: $0000020F VOL: 0
+;PCODE: $00000210 VOL: 0
+;PCODE: $00000211 VOL: 0
+;PCODE: $00000212 VOL: 0
+;PCODE: $00000213 VOL: 0
+;PCODE: $00000214 VOL: 0
+;PCODE: $00000215 VOL: 0
+;PCODE: $00000216 VOL: 0
+;PCODE: $00000217 VOL: 0
+; 0000 0183     sss = 10;
+;PCODE: $00000218 VOL: 0
+;PCODE: $00000219 VOL: 0
+;PCODE: $0000021A VOL: 0
+; 0000 0184     ftoa (ret,1,str);
+;PCODE: $0000021B VOL: 0
+;PCODE: $0000021C VOL: 0
+;PCODE: $0000021D VOL: 0
+;PCODE: $0000021E VOL: 0
+;PCODE: $0000021F VOL: 0
+;PCODE: $00000220 VOL: 0
+;PCODE: $00000221 VOL: 0
+; 0000 0185     lcd_gotoxy(5,1);
+;PCODE: $00000222 VOL: 0
+;PCODE: $00000223 VOL: 0
+;PCODE: $00000224 VOL: 0
+;PCODE: $00000225 VOL: 0
+;PCODE: $00000226 VOL: 0
+; 0000 0186     lcd_puts(str);
+;PCODE: $00000227 VOL: 0
+;PCODE: $00000228 VOL: 0
+;PCODE: $00000229 VOL: 0
+; 0000 0187     return ret;
+;PCODE: $0000022A VOL: 0
+;PCODE: $0000022B VOL: 0
+;PCODE: $0000022C VOL: 0
+;PCODE: $0000022D VOL: 0
+; 0000 0188 }
+;PCODE: $0000022E VOL: 0
+;void goforIt(int m1, int m2, int m3) {
+; 0000 0189 void goforIt(int m1, int m2, int m3) {
+;PCODE: $0000022F VOL: 0
+;PCODE: $00000230 VOL: 0
+; 0000 018A     int motors[3];
+; 0000 018B     int maxmotor;
+; 0000 018C     float maxvalue;
+; 0000 018D     motors[0] = m1;
+;PCODE: $00000231 VOL: 0
+;PCODE: $00000232 VOL: 0
+;PCODE: $00000233 VOL: 0
+;	m1 -> Y+16
+;	m2 -> Y+14
+;	m3 -> Y+12
+;	motors -> Y+6
+;	maxmotor -> R16,R17
+;	maxvalue -> Y+2
+;PCODE: $00000234 VOL: 0
+;PCODE: $00000235 VOL: 0
+; 0000 018E     motors[1] = m2;
+;PCODE: $00000236 VOL: 0
+;PCODE: $00000237 VOL: 0
+; 0000 018F     motors[2] = m3;
+;PCODE: $00000238 VOL: 0
+;PCODE: $00000239 VOL: 0
+; 0000 0190     spinSpeed(3,15,10);
+;PCODE: $0000023A VOL: 0
+;PCODE: $0000023B VOL: 0
+;PCODE: $0000023C VOL: 0
+;PCODE: $0000023D VOL: 0
+;PCODE: $0000023E VOL: 0
+;PCODE: $0000023F VOL: 0
+;PCODE: $00000240 VOL: 0
+; 0000 0191     motors[0] = motors[0] + motorSpeed;
+;PCODE: $00000241 VOL: 0
+;PCODE: $00000242 VOL: 0
+;PCODE: $00000243 VOL: 0
+;PCODE: $00000244 VOL: 0
+; 0000 0192     motors[1] = motors[1] + motorSpeed;
+;PCODE: $00000245 VOL: 0
+;PCODE: $00000246 VOL: 0
+;PCODE: $00000247 VOL: 0
+;PCODE: $00000248 VOL: 0
+; 0000 0193     motors[2] = motors[2] + motorSpeed;
+;PCODE: $00000249 VOL: 0
+;PCODE: $0000024A VOL: 0
+;PCODE: $0000024B VOL: 0
+;PCODE: $0000024C VOL: 0
+; 0000 0194     maxmotor=0;
+;PCODE: $0000024D VOL: 0
+;PCODE: $0000024E VOL: 0
+; 0000 0195     if(abs(motors[maxmotor])<abs(motors[1]))maxmotor=1;
+;PCODE: $0000024F VOL: 0
+;PCODE: $00000250 VOL: 0
+;PCODE: $00000251 VOL: 0
+;PCODE: $00000252 VOL: 0
+;PCODE: $00000253 VOL: 0
+;PCODE: $00000254 VOL: 0
+;PCODE: $00000255 VOL: 0
+;PCODE: $00000256 VOL: 0
+;PCODE: $00000257 VOL: 0
+;PCODE: $00000258 VOL: 0
+;PCODE: $00000259 VOL: 0
+;PCODE: $0000025A VOL: 0
+;PCODE: $0000025B VOL: 0
+;PCODE: $0000025C VOL: 0
+;PCODE: $0000025D VOL: 0
+;PCODE: $0000025E VOL: 0
+; 0000 0196     if(abs(motors[maxmotor])<abs(motors[2]))maxmotor=2;
+;PCODE: $0000025F VOL: 0
+;PCODE: $00000260 VOL: 0
+;PCODE: $00000261 VOL: 0
+;PCODE: $00000262 VOL: 0
+;PCODE: $00000263 VOL: 0
+;PCODE: $00000264 VOL: 0
+;PCODE: $00000265 VOL: 0
+;PCODE: $00000266 VOL: 0
+;PCODE: $00000267 VOL: 0
+;PCODE: $00000268 VOL: 0
+;PCODE: $00000269 VOL: 0
+;PCODE: $0000026A VOL: 0
+;PCODE: $0000026B VOL: 0
+;PCODE: $0000026C VOL: 0
+;PCODE: $0000026D VOL: 0
+;PCODE: $0000026E VOL: 0
+;PCODE: $0000026F VOL: 0
+; 0000 0197     maxvalue = (float)255/abs(motors[maxmotor]);
+;PCODE: $00000270 VOL: 0
+;PCODE: $00000271 VOL: 0
+;PCODE: $00000272 VOL: 0
+;PCODE: $00000273 VOL: 0
+;PCODE: $00000274 VOL: 0
+;PCODE: $00000275 VOL: 0
+;PCODE: $00000276 VOL: 0
+;PCODE: $00000277 VOL: 0
+;PCODE: $00000278 VOL: 0
+;PCODE: $00000279 VOL: 0
+;PCODE: $0000027A VOL: 0
+;PCODE: $0000027B VOL: 0
+; 0000 0198     motors[0] = motors[0] * maxvalue ;
+;PCODE: $0000027C VOL: 0
+;PCODE: $0000027D VOL: 0
+;PCODE: $0000027E VOL: 0
+;PCODE: $0000027F VOL: 0
+;PCODE: $00000280 VOL: 0
+;PCODE: $00000281 VOL: 0
+;PCODE: $00000282 VOL: 0
+; 0000 0199     motors[1] = motors[1] * maxvalue;
+;PCODE: $00000283 VOL: 0
+;PCODE: $00000284 VOL: 0
+;PCODE: $00000285 VOL: 0
+;PCODE: $00000286 VOL: 0
+;PCODE: $00000287 VOL: 0
+;PCODE: $00000288 VOL: 0
+;PCODE: $00000289 VOL: 0
+; 0000 019A     motors[2] = motors[2] * maxvalue;
+;PCODE: $0000028A VOL: 0
+;PCODE: $0000028B VOL: 0
+;PCODE: $0000028C VOL: 0
+;PCODE: $0000028D VOL: 0
+;PCODE: $0000028E VOL: 0
+;PCODE: $0000028F VOL: 0
+;PCODE: $00000290 VOL: 0
+; 0000 019B     motorSpeed1 = motors[0];
+;PCODE: $00000291 VOL: 0
+;PCODE: $00000292 VOL: 0
+; 0000 019C     motorSpeed2 = motors[1];
+;PCODE: $00000293 VOL: 0
+;PCODE: $00000294 VOL: 0
+; 0000 019D     motorSpeed3 = motors[2];
+;PCODE: $00000295 VOL: 0
+;PCODE: $00000296 VOL: 0
+; 0000 019E }
+;PCODE: $00000297 VOL: 0
+;PCODE: $00000298 VOL: 0
+;PCODE: $00000299 VOL: 0
+;PCODE: $0000029A VOL: 0
+;PCODE: $0000029B VOL: 0
+;PCODE: $0000029C VOL: 0
+;PCODE: $0000029D VOL: 0
+;void spinSpeed(int devidedValue, int addedValue, int correction) {
+; 0000 019F void spinSpeed(int devidedValue, int addedValue, int correction) {
+;PCODE: $0000029E VOL: 0
+;PCODE: $0000029F VOL: 0
+; 0000 01A0     if(compass<correction && compass>-correction) {
+;	devidedValue -> Y+4
+;	addedValue -> Y+2
+;	correction -> Y+0
+;PCODE: $000002A0 VOL: 0
+;PCODE: $000002A1 VOL: 0
+;PCODE: $000002A2 VOL: 0
+;PCODE: $000002A3 VOL: 0
+;PCODE: $000002A4 VOL: 0
+;PCODE: $000002A5 VOL: 0
+;PCODE: $000002A6 VOL: 0
+;PCODE: $000002A7 VOL: 0
+;PCODE: $000002A8 VOL: 0
+;PCODE: $000002A9 VOL: 0
+;PCODE: $000002AA VOL: 0
+;PCODE: $000002AB VOL: 0
+;PCODE: $000002AC VOL: 0
+; 0000 01A1         motorSpeed = 0;
+;PCODE: $000002AD VOL: 0
+; 0000 01A2     } else {
+;PCODE: $000002AE VOL: 0
+;PCODE: $000002AF VOL: 0
+; 0000 01A3         if(compass > 0) {
+;PCODE: $000002B0 VOL: 0
+;PCODE: $000002B1 VOL: 0
+;PCODE: $000002B2 VOL: 0
+; 0000 01A4             motorSpeed = (((compass)/(devidedValue) + (addedValue)));
+;PCODE: $000002B3 VOL: 0
+;PCODE: $000002B4 VOL: 0
+;PCODE: $000002B5 VOL: 0
+;PCODE: $000002B6 VOL: 0
+;PCODE: $000002B7 VOL: 0
+;PCODE: $000002B8 VOL: 0
+; 0000 01A5         } else {
+;PCODE: $000002B9 VOL: 0
+;PCODE: $000002BA VOL: 0
+; 0000 01A6             motorSpeed = (((compass)/(devidedValue) - (addedValue)));
+;PCODE: $000002BB VOL: 0
+;PCODE: $000002BC VOL: 0
+;PCODE: $000002BD VOL: 0
+;PCODE: $000002BE VOL: 0
+;PCODE: $000002BF VOL: 0
+;PCODE: $000002C0 VOL: 0
+;PCODE: $000002C1 VOL: 0
+; 0000 01A7         }
+;PCODE: $000002C2 VOL: 0
+; 0000 01A8     }
+;PCODE: $000002C3 VOL: 0
+; 0000 01A9 }
+;PCODE: $000002C4 VOL: 0
+;PCODE: $000002C5 VOL: 0
+;PCODE: $000002C6 VOL: 0
+;void init_compass() {
+; 0000 01AA void init_compass() {
+;PCODE: $000002C7 VOL: 0
+;PCODE: $000002C8 VOL: 0
+; 0000 01AB     compass = readcmp();
+;PCODE: $000002C9 VOL: 0
+;PCODE: $000002CA VOL: 0
+;PCODE: $000002CB VOL: 0
+; 0000 01AC     compass = calc_degree(compass);
+;PCODE: $000002CC VOL: 0
+;PCODE: $000002CD VOL: 0
+;PCODE: $000002CE VOL: 0
+;PCODE: $000002CF VOL: 0
+; 0000 01AD }
+;PCODE: $000002D0 VOL: 0
+;PCODE: $000002D1 VOL: 0
+;int calc_degree(int a) {
+; 0000 01AE int calc_degree(int a) {
+;PCODE: $000002D2 VOL: 0
+;PCODE: $000002D3 VOL: 0
+; 0000 01AF    // write_int(0,1,a);
+; 0000 01B0     a = a-start_point;
+;	a -> Y+0
+;PCODE: $000002D4 VOL: 0
+;PCODE: $000002D5 VOL: 0
+;PCODE: $000002D6 VOL: 0
+;PCODE: $000002D7 VOL: 0
+;PCODE: $000002D8 VOL: 0
+; 0000 01B1     if(a > 128) {
+;PCODE: $000002D9 VOL: 0
+;PCODE: $000002DA VOL: 0
+;PCODE: $000002DB VOL: 0
+; 0000 01B2         a = a - 256;
+;PCODE: $000002DC VOL: 0
+;PCODE: $000002DD VOL: 0
+;PCODE: $000002DE VOL: 0
+; 0000 01B3     } else if(a < -128) {
+;PCODE: $000002DF VOL: 0
+;PCODE: $000002E0 VOL: 0
+;PCODE: $000002E1 VOL: 0
+;PCODE: $000002E2 VOL: 0
+;PCODE: $000002E3 VOL: 0
+; 0000 01B4        a = a + 256;
+;PCODE: $000002E4 VOL: 0
+;PCODE: $000002E5 VOL: 0
+;PCODE: $000002E6 VOL: 0
+; 0000 01B5     }
+; 0000 01B6     return a;
+;PCODE: $000002E7 VOL: 0
+;PCODE: $000002E8 VOL: 0
+;PCODE: $000002E9 VOL: 0
+;PCODE: $000002EA VOL: 0
+;PCODE: $000002EB VOL: 0
+; 0000 01B7 }
+;PCODE: $000002EC VOL: 0
+;unsigned char readcmp() {
+; 0000 01B8 unsigned char readcmp() {
+;PCODE: $000002ED VOL: 0
+;PCODE: $000002EE VOL: 0
+; 0000 01B9     unsigned char data;
+; 0000 01BA     i2c_start();
+;PCODE: $000002EF VOL: 0
+;	data -> R17
+;PCODE: $000002F0 VOL: 0
+; 0000 01BB     i2c_write(cmpbus);
+;PCODE: $000002F1 VOL: 0
+;PCODE: $000002F2 VOL: 0
+;PCODE: $000002F3 VOL: 0
+; 0000 01BC     i2c_write(1);
+;PCODE: $000002F4 VOL: 0
+;PCODE: $000002F5 VOL: 0
+;PCODE: $000002F6 VOL: 0
+; 0000 01BD     i2c_start();
+;PCODE: $000002F7 VOL: 0
+; 0000 01BE     i2c_write(cmpbus | 1);
+;PCODE: $000002F8 VOL: 0
+;PCODE: $000002F9 VOL: 0
+;PCODE: $000002FA VOL: 0
+; 0000 01BF     data=i2c_read(0);
+;PCODE: $000002FB VOL: 0
+;PCODE: $000002FC VOL: 0
+;PCODE: $000002FD VOL: 0
+;PCODE: $000002FE VOL: 0
+; 0000 01C0     i2c_stop();
+;PCODE: $000002FF VOL: 0
+; 0000 01C1     return data;
+;PCODE: $00000300 VOL: 0
+;PCODE: $00000301 VOL: 0
+;PCODE: $00000302 VOL: 0
+; 0000 01C2 }
+;PCODE: $00000303 VOL: 0
+;void compass_calib(void){
+; 0000 01C3 void compass_calib(void){
+;PCODE: $00000304 VOL: 0
+;PCODE: $00000305 VOL: 0
+; 0000 01C4     set_muxs(15);
+;PCODE: $00000306 VOL: 0
+;PCODE: $00000307 VOL: 0
+;PCODE: $00000308 VOL: 0
+; 0000 01C5     while (MUXOB == 1);
+;PCODE: $00000309 VOL: 0
+;PCODE: $0000030A VOL: 0
+;PCODE: $0000030B VOL: 0
+;PCODE: $0000030C VOL: 0
+;PCODE: $0000030D VOL: 0
+;PCODE: $0000030E VOL: 0
+; 0000 01C6     delay_ms(100);
+;PCODE: $0000030F VOL: 0
+;PCODE: $00000310 VOL: 0
+;PCODE: $00000311 VOL: 0
+; 0000 01C7     i2c_start();
+;PCODE: $00000312 VOL: 0
+; 0000 01C8     i2c_write(cmpbus);
+;PCODE: $00000313 VOL: 0
+;PCODE: $00000314 VOL: 0
+;PCODE: $00000315 VOL: 0
+; 0000 01C9     i2c_write(15);
+;PCODE: $00000316 VOL: 0
+;PCODE: $00000317 VOL: 0
+;PCODE: $00000318 VOL: 0
+; 0000 01CA     i2c_write(0xff);
+;PCODE: $00000319 VOL: 0
+;PCODE: $0000031A VOL: 0
+;PCODE: $0000031B VOL: 0
+; 0000 01CB     i2c_stop();
+;PCODE: $0000031C VOL: 0
+; 0000 01CC     lcd_clear();
+;PCODE: $0000031D VOL: 0
+; 0000 01CD     lcd_putsf("done");
+;PCODE: $0000031E VOL: 0
+;PCODE: $0000031F VOL: 0
+;PCODE: $00000320 VOL: 0
+;PCODE: $00000321 VOL: 0
+; 0000 01CE     delay_ms(500);
+;PCODE: $00000322 VOL: 0
+;PCODE: $00000323 VOL: 0
+;PCODE: $00000324 VOL: 0
+; 0000 01CF     lcd_clear();
+;PCODE: $00000325 VOL: 0
+; 0000 01D0     set_muxs(15);
+;PCODE: $00000326 VOL: 0
+;PCODE: $00000327 VOL: 0
+;PCODE: $00000328 VOL: 0
+; 0000 01D1     while (MUXOB == 1);
+;PCODE: $00000329 VOL: 0
+;PCODE: $0000032A VOL: 0
+;PCODE: $0000032B VOL: 0
+;PCODE: $0000032C VOL: 0
+;PCODE: $0000032D VOL: 0
+;PCODE: $0000032E VOL: 0
+; 0000 01D2     delay_ms(100);
+;PCODE: $0000032F VOL: 0
+;PCODE: $00000330 VOL: 0
+;PCODE: $00000331 VOL: 0
+; 0000 01D3     i2c_start();
+;PCODE: $00000332 VOL: 0
+; 0000 01D4     i2c_write(cmpbus);
+;PCODE: $00000333 VOL: 0
+;PCODE: $00000334 VOL: 0
+;PCODE: $00000335 VOL: 0
+; 0000 01D5     i2c_write(15);
+;PCODE: $00000336 VOL: 0
+;PCODE: $00000337 VOL: 0
+;PCODE: $00000338 VOL: 0
+; 0000 01D6     i2c_write(0xff);
+;PCODE: $00000339 VOL: 0
+;PCODE: $0000033A VOL: 0
+;PCODE: $0000033B VOL: 0
+; 0000 01D7     i2c_stop();
+;PCODE: $0000033C VOL: 0
+; 0000 01D8     lcd_clear();
+;PCODE: $0000033D VOL: 0
+; 0000 01D9     lcd_putsf("done");
+;PCODE: $0000033E VOL: 0
+;PCODE: $0000033F VOL: 0
+;PCODE: $00000340 VOL: 0
+;PCODE: $00000341 VOL: 0
+; 0000 01DA     delay_ms(500);
+;PCODE: $00000342 VOL: 0
+;PCODE: $00000343 VOL: 0
+;PCODE: $00000344 VOL: 0
+; 0000 01DB     lcd_clear();
+;PCODE: $00000345 VOL: 0
+; 0000 01DC     set_muxs(15);
+;PCODE: $00000346 VOL: 0
+;PCODE: $00000347 VOL: 0
+;PCODE: $00000348 VOL: 0
+; 0000 01DD     while (MUXOB == 1);
+;PCODE: $00000349 VOL: 0
+;PCODE: $0000034A VOL: 0
+;PCODE: $0000034B VOL: 0
+;PCODE: $0000034C VOL: 0
+;PCODE: $0000034D VOL: 0
+;PCODE: $0000034E VOL: 0
+; 0000 01DE     delay_ms(100);
+;PCODE: $0000034F VOL: 0
+;PCODE: $00000350 VOL: 0
+;PCODE: $00000351 VOL: 0
+; 0000 01DF     i2c_start();
+;PCODE: $00000352 VOL: 0
+; 0000 01E0     i2c_write(cmpbus);
+;PCODE: $00000353 VOL: 0
+;PCODE: $00000354 VOL: 0
+;PCODE: $00000355 VOL: 0
+; 0000 01E1     i2c_write(15);
+;PCODE: $00000356 VOL: 0
+;PCODE: $00000357 VOL: 0
+;PCODE: $00000358 VOL: 0
+; 0000 01E2     i2c_write(0xff);
+;PCODE: $00000359 VOL: 0
+;PCODE: $0000035A VOL: 0
+;PCODE: $0000035B VOL: 0
+; 0000 01E3     i2c_stop();
+;PCODE: $0000035C VOL: 0
+; 0000 01E4     lcd_clear();
+;PCODE: $0000035D VOL: 0
+; 0000 01E5     lcd_putsf("done");
+;PCODE: $0000035E VOL: 0
+;PCODE: $0000035F VOL: 0
+;PCODE: $00000360 VOL: 0
+;PCODE: $00000361 VOL: 0
+; 0000 01E6     delay_ms(500);
+;PCODE: $00000362 VOL: 0
+;PCODE: $00000363 VOL: 0
+;PCODE: $00000364 VOL: 0
+; 0000 01E7     lcd_clear();
+;PCODE: $00000365 VOL: 0
+; 0000 01E8     set_muxs(15);
+;PCODE: $00000366 VOL: 0
+;PCODE: $00000367 VOL: 0
+;PCODE: $00000368 VOL: 0
+; 0000 01E9     while (MUXOB == 1);
+;PCODE: $00000369 VOL: 0
+;PCODE: $0000036A VOL: 0
+;PCODE: $0000036B VOL: 0
+;PCODE: $0000036C VOL: 0
+;PCODE: $0000036D VOL: 0
+;PCODE: $0000036E VOL: 0
+; 0000 01EA     delay_ms(100);
+;PCODE: $0000036F VOL: 0
+;PCODE: $00000370 VOL: 0
+;PCODE: $00000371 VOL: 0
+; 0000 01EB     i2c_start();
+;PCODE: $00000372 VOL: 0
+; 0000 01EC     i2c_write(cmpbus);
+;PCODE: $00000373 VOL: 0
+;PCODE: $00000374 VOL: 0
+;PCODE: $00000375 VOL: 0
+; 0000 01ED     i2c_write(15);
+;PCODE: $00000376 VOL: 0
+;PCODE: $00000377 VOL: 0
+;PCODE: $00000378 VOL: 0
+; 0000 01EE     i2c_write(0xff);
+;PCODE: $00000379 VOL: 0
+;PCODE: $0000037A VOL: 0
+;PCODE: $0000037B VOL: 0
+; 0000 01EF     i2c_stop();
+;PCODE: $0000037C VOL: 0
+; 0000 01F0     lcd_clear();
+;PCODE: $0000037D VOL: 0
+; 0000 01F1     lcd_putsf("done");
+;PCODE: $0000037E VOL: 0
+;PCODE: $0000037F VOL: 0
+;PCODE: $00000380 VOL: 0
+;PCODE: $00000381 VOL: 0
+; 0000 01F2     delay_ms(500);
+;PCODE: $00000382 VOL: 0
+;PCODE: $00000383 VOL: 0
+;PCODE: $00000384 VOL: 0
+; 0000 01F3     lcd_clear();
+;PCODE: $00000385 VOL: 0
+; 0000 01F4 }
+;PCODE: $00000386 VOL: 0
+;PCODE: $00000387 VOL: 0
+;///////////--------------------------- Motor Function ------------------------------///////////
+;void motor(int a, int b, int c) {
+; 0000 01F6 void motor(int a, int b, int c) {
+;PCODE: $00000388 VOL: 0
+;PCODE: $00000389 VOL: 0
+; 0000 01F7     a = a*RDC_FOR_MAXON;
+;	a -> Y+4
+;	b -> Y+2
+;	c -> Y+0
+;PCODE: $0000038A VOL: 0
+;PCODE: $0000038B VOL: 0
+;PCODE: $0000038C VOL: 0
+;PCODE: $0000038D VOL: 0
+;PCODE: $0000038E VOL: 0
+;PCODE: $0000038F VOL: 0
+;PCODE: $00000390 VOL: 0
+; 0000 01F8     b = b*RDC_FOR_MAXON;
+;PCODE: $00000391 VOL: 0
+;PCODE: $00000392 VOL: 0
+;PCODE: $00000393 VOL: 0
+;PCODE: $00000394 VOL: 0
+;PCODE: $00000395 VOL: 0
+;PCODE: $00000396 VOL: 0
+;PCODE: $00000397 VOL: 0
+; 0000 01F9     c = c*RDC_FOR_MAXON;
+;PCODE: $00000398 VOL: 0
+;PCODE: $00000399 VOL: 0
+;PCODE: $0000039A VOL: 0
+;PCODE: $0000039B VOL: 0
+;PCODE: $0000039C VOL: 0
+;PCODE: $0000039D VOL: 0
+;PCODE: $0000039E VOL: 0
+; 0000 01FA     if(a>0) {
+;PCODE: $0000039F VOL: 0
+;PCODE: $000003A0 VOL: 0
+;PCODE: $000003A1 VOL: 0
+; 0000 01FB         PORTB.2 = 0;
+;PCODE: $000003A2 VOL: 0
+;PCODE: $000003A3 VOL: 0
+; 0000 01FC         OCR0 = a;
+;PCODE: $000003A4 VOL: 0
+;PCODE: $000003A5 VOL: 0
+; 0000 01FD     } else {
+;PCODE: $000003A6 VOL: 0
+;PCODE: $000003A7 VOL: 0
+; 0000 01FE         PORTB.2 = 1;
+;PCODE: $000003A8 VOL: 0
+;PCODE: $000003A9 VOL: 0
+; 0000 01FF         a = a + 255;
+;PCODE: $000003AA VOL: 0
+;PCODE: $000003AB VOL: 0
+;PCODE: $000003AC VOL: 0
+; 0000 0200         OCR0 = a;
+;PCODE: $000003AD VOL: 0
+;PCODE: $000003AE VOL: 0
+; 0000 0201     }
+;PCODE: $000003AF VOL: 0
+; 0000 0202     if(c>0) {
+;PCODE: $000003B0 VOL: 0
+;PCODE: $000003B1 VOL: 0
+;PCODE: $000003B2 VOL: 0
+; 0000 0203         PORTD.2 = 0;
+;PCODE: $000003B3 VOL: 0
+;PCODE: $000003B4 VOL: 0
+; 0000 0204         OCR1B = c;
+;PCODE: $000003B5 VOL: 0
+;PCODE: $000003B6 VOL: 0
+; 0000 0205     } else {
+;PCODE: $000003B7 VOL: 0
+;PCODE: $000003B8 VOL: 0
+; 0000 0206         PORTD.2 = 1;
+;PCODE: $000003B9 VOL: 0
+;PCODE: $000003BA VOL: 0
+; 0000 0207         c = c + 255;
+;PCODE: $000003BB VOL: 0
+;PCODE: $000003BC VOL: 0
+;PCODE: $000003BD VOL: 0
+; 0000 0208         OCR1B = c;
+;PCODE: $000003BE VOL: 0
+;PCODE: $000003BF VOL: 0
+; 0000 0209     }
+;PCODE: $000003C0 VOL: 0
+; 0000 020A     if(b>0) {
+;PCODE: $000003C1 VOL: 0
+;PCODE: $000003C2 VOL: 0
+;PCODE: $000003C3 VOL: 0
+; 0000 020B         PORTD.3 = 0;
+;PCODE: $000003C4 VOL: 0
+;PCODE: $000003C5 VOL: 0
+; 0000 020C         OCR1A = b;
+;PCODE: $000003C6 VOL: 0
+;PCODE: $000003C7 VOL: 0
+; 0000 020D     } else {
+;PCODE: $000003C8 VOL: 0
+;PCODE: $000003C9 VOL: 0
+; 0000 020E         PORTD.3 = 1;
+;PCODE: $000003CA VOL: 0
+;PCODE: $000003CB VOL: 0
+; 0000 020F         b = b + 255;
+;PCODE: $000003CC VOL: 0
+;PCODE: $000003CD VOL: 0
+;PCODE: $000003CE VOL: 0
+; 0000 0210         OCR1A = b;
+;PCODE: $000003CF VOL: 0
+;PCODE: $000003D0 VOL: 0
+; 0000 0211     }
+;PCODE: $000003D1 VOL: 0
+; 0000 0212 }
+;PCODE: $000003D2 VOL: 0
+;PCODE: $000003D3 VOL: 0
+;PCODE: $000003D4 VOL: 0

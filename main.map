@@ -3,13 +3,21 @@ Variable                                                          Address   Size
 --------------------------------------------------------------------------------
 workingSensors                                                    0x0169      36
 sensors                                                           0x018D      36
-_seed                                                             0x01B1       4
-_base_y                                                           0x01B5       4
-_lcd_maxx                                                         0x01B9       1
+str                                                               0x01B1       4
+sss                                                               0x01B5       4
+motorSpeed2                                                       0x01B9       2
+motorSpeed3                                                       0x01BB       2
+compass                                                           0x01BD       2
+_seed                                                             0x01BF       4
+_base_y                                                           0x01C3       4
+_lcd_x                                                            0x01C7       1
+_lcd_y                                                            0x01C8       1
+_lcd_maxx                                                         0x01C9       1
 
 EEPROM Allocation
 Variable                                                          Address   Size
 --------------------------------------------------------------------------------
+start_point                                                       0x0000       2
 
 Register Allocation
 Variable                                                          Register  Size
@@ -17,5 +25,5 @@ Variable                                                          Register  Size
 lcd_enabled                                                       R4,R5        2
 rc                                                                R6,R7        2
 i                                                                 R8,R9        2
-_lcd_x                                                            R13          1
-_lcd_y                                                            R12          1
+motorSpeed                                                        R10,R11      2
+motorSpeed1                                                       R12,R13      2
